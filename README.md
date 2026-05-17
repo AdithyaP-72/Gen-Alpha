@@ -10,6 +10,19 @@ Gen-Alpha is an automated, high-throughput, multithreaded alpha-mining pipeline 
 - **Thundering Herd Jitter & Rate Limiting**: Gracefully handles WorldQuant's strict API burst limits (`HTTP 429`) by applying randomized backoff jitter to desynchronize threads.
 - **Dynamic Blacklisting**: Parses `simulation_history.json` on startup to ensure no API cycles are ever wasted re-testing a previously mined data stream.
 
+### 🧪 The Template Hierarchy
+When the bot selects a new data field, it sequentially tests it against an escalating hierarchy of mathematical templates. If a template generates a Sharpe < 0, it automatically attempts the negated version. If a template achieves Fitness > 0.6, it immediately halts template escalation and routes the expression into the Parameter Sweep engine.
+
+The current escalation tree is:
+1. `[field]` (Raw Field)
+2. `-[field]` (Negated Raw Field)
+3. `ts_rank([field], 252)` (1-year Time-Series Rank)
+4. `-ts_rank([field], 252)` (Negated 1-year Rank)
+5. `ts_rank([field], 63)` (1-quarter Time-Series Rank)
+6. `[field] - ts_mean([field], 252)` (Deviation from 1-year Mean)
+7. `ts_av_diff([field], 63)` (Average Time-Series Difference)
+8. `-ts_av_diff([field], 63)` (Negated Average Difference)
+
 ---
 
 ## 📂 Project Structure
