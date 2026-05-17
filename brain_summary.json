@@ -1,0 +1,34 @@
+{
+  "total_fields": 7406,
+  "categories": {
+    "Model": 3296,
+    "Fundamental": 1652,
+    "Analyst": 1324,
+    "News": 996,
+    "Option": 138
+  },
+  "datasets": {
+    "Analysts' Factor Model": 3256,
+    "Fundamental Scores": 24,
+    "Systematic Risk Metrics": 16,
+    "Report Footnotes": 766,
+    "Company Fundamental Data for Equity": 886,
+    "Analyst Estimate Data for Equity": 1324,
+    "US News Data": 875,
+    "Ravenpack News Data": 121,
+    "Options Analytics": 74,
+    "Volatility Data": 64
+  },
+  "subcategories": {
+    "Technical Models": 3256,
+    "Valuation Models": 24,
+    "Risk Models": 16,
+    "Footnotes": 766,
+    "Fundamental Data": 886,
+    "Analyst Estimates": 1324,
+    "News": 875,
+    "News Sentiment": 121,
+    "Option Analytics": 74,
+    "Option Volatility": 64
+  }
+}
