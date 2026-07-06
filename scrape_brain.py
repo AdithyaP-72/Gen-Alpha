@@ -1,15 +1,25 @@
 #!/usr/bin/env python3
 """
 Scrape all WorldQuant BRAIN data fields and operators via API.
-Uses the authenticated session cookie for access.
+
+Auth priority (tries each in order until one works):
+  1. HTTP Basic Auth from env vars WQ_BRAIN_USERNAME / WQ_BRAIN_PASSWORD
+  2. HTTP Basic Auth from local credential.txt  (JSON array: ["user","pass"])
+  3. Cookie-based JWT (legacy fallback — requires manual token refresh)
 """
 
 import json
+import os
 import time
 import requests
+from requests.auth import HTTPBasicAuth
 from collections import defaultdict
 
-# Session setup with auth headers
+# ──────────────────────────────────────────────────────────────────
+# Authentication
+# ──────────────────────────────────────────────────────────────────
+BASE_URL = 'https://api.worldquantbrain.com'
+
 HEADERS = {
     'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:150.0) Gecko/20100101 Firefox/150.0',
     'Accept': 'application/json;version=3.0',
@@ -23,22 +33,88 @@ HEADERS = {
     'Sec-Fetch-Site': 'same-site',
 }
 
+# Fallback legacy cookie (update manually from browser DevTools > Network tab)
 COOKIES = {
     'cookieyes-consent': 'consentid:M3pmNmFzcTlySGVtNnRjRTBMeFJaMWsyZFB2VTdsZEo,consent:yes,action:yes,necessary:yes,functional:yes,analytics:yes,performance:yes,advertisement:yes,other:yes; __zlcmid=1XXoVcSsAg7JjWA; t=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJqdGkiOiJlUkdNU3FJeW1vS0toNFhBa0xUekVhYUk3YWdhamNrdyIsImV4cCI6MTc3OTAzODk3MH0.iT5J7C24QbnV4WTfLNPhzKgr_atAKw_7wfVbqVQed4k'
 }
 
-BASE_URL = 'https://api.worldquantbrain.com'
 
-session = requests.Session()
-session.headers.update(HEADERS)
-session.cookies.update(COOKIES)
+def _build_session() -> requests.Session:
+    """
+    Create and authenticate a requests Session.
+    Returns an active session ready for API calls.
+    """
+    sess = requests.Session()
+    sess.headers.update(HEADERS)
+
+    # ── 1. Environment variables ──────────────────────────────────
+    username = os.getenv('WQ_BRAIN_USERNAME')
+    password = os.getenv('WQ_BRAIN_PASSWORD')
+
+    # ── 2. credential.txt fallback ───────────────────────────────
+    if not (username and password) and os.path.exists('credential.txt'):
+        try:
+            with open('credential.txt') as f:
+                creds = json.load(f)
+                if isinstance(creds, list) and len(creds) == 2:
+                    username, password = creds[0], creds[1]
+                elif isinstance(creds, dict):
+                    username = creds.get('username') or creds.get('user')
+                    password = creds.get('password') or creds.get('pass')
+        except Exception as e:
+            print(f"[auth] credential.txt parse error: {e}")
+
+    # ── 3. Attempt HTTP Basic Auth ────────────────────────────────
+    if username and password:
+        sess.auth = HTTPBasicAuth(username, password)
+        try:
+            resp = sess.post(f'{BASE_URL}/authentication', timeout=15)
+            if resp.status_code == 201:
+                print(f"[auth] ✅ HTTP Basic Auth successful as '{username}'")
+                sess.auth = None  # session cookie is now stored; don't re-send Basic each time
+                return sess
+            else:
+                print(f"[auth] ⚠️  Basic Auth returned {resp.status_code}: {resp.text[:120]}")
+                sess.auth = None
+        except Exception as e:
+            print(f"[auth] Basic Auth request failed: {e}")
+            sess.auth = None
+
+    # ── 4. Cookie fallback ───────────────────────────────────────
+    print("[auth] ⚠️  Falling back to cookie-based auth. Update COOKIES if you see 401 errors.")
+    sess.cookies.update(COOKIES)
+    return sess
 
 
+session = _build_session()
+
+
+# ──────────────────────────────────────────────────────────────────
+# API helpers
+# ──────────────────────────────────────────────────────────────────
+def _get_with_retry(url, params=None, max_retries=5, base_sleep=2.0):
+    """GET with exponential-backoff on HTTP 429."""
+    sleep = base_sleep
+    for attempt in range(max_retries):
+        resp = session.get(url, params=params, timeout=30)
+        if resp.status_code == 429:
+            retry_after = int(resp.headers.get('Retry-After', sleep))
+            wait = max(retry_after, sleep)
+            print(f"  [rate limit] 429 — sleeping {wait:.1f}s (attempt {attempt+1}/{max_retries})")
+            time.sleep(wait)
+            sleep = min(sleep * 2, 120)
+            continue
+        return resp
+    return None  # exhausted
+
+
+# ──────────────────────────────────────────────────────────────────
+# Scraping
+# ──────────────────────────────────────────────────────────────────
 def scrape_data_fields():
     """Scrape all data fields with pagination and by category."""
     all_fields = []
-    limit = 50  # max per page
-    
+    limit = 50
     categories = ['model', 'fundamental', 'analyst', 'news', 'pv', 'option']
 
     print("=" * 60)
@@ -50,7 +126,7 @@ def scrape_data_fields():
         cat_fields = []
         total = None
         print(f"\nScraping category: {category}")
-        
+
         while True:
             params = {
                 'delay': 1,
@@ -59,27 +135,23 @@ def scrape_data_fields():
                 'offset': offset,
                 'region': 'USA',
                 'universe': 'TOP3000',
-                'dataset.category': category
+                'category': category,
             }
-            
-            # Use 'dataset.category' or just 'category' parameter? The user suggested 'category=news'
-            params['category'] = category
-            
-            response = session.get(
-                f'{BASE_URL}/data-fields',
-                params=params
-            )
+
+            response = _get_with_retry(f'{BASE_URL}/data-fields', params=params)
+            if response is None:
+                print(f"  [!] Exhausted retries for {category} at offset {offset}")
+                break
 
             if response.status_code != 200:
-                print(f"Error at offset {offset} for {category}: HTTP {response.status_code}")
+                print(f"  Error at offset {offset} for {category}: HTTP {response.status_code}")
                 print(response.text[:500])
                 break
 
             data = response.json()
-
             if total is None:
                 total = data.get('count', 0)
-                print(f"Total fields to fetch in {category}: {total}")
+                print(f"  Total fields to fetch in {category}: {total}")
 
             fields = data.get('results', [])
             if not fields:
@@ -89,36 +161,30 @@ def scrape_data_fields():
             print(f"  Fetched {len(cat_fields)}/{total} fields in {category}...")
 
             offset += limit
-
             if offset >= total:
                 break
 
-            time.sleep(2.0)  # Rate limiting
-            
+            time.sleep(1.5)  # polite rate limit
+
         all_fields.extend(cat_fields)
 
     return all_fields
 
 
 def scrape_operators():
-    """Scrape all operators."""
+    """Scrape all FASTEXPR operators."""
     print("\n" + "=" * 60)
     print("SCRAPING OPERATORS")
     print("=" * 60)
 
-    # Try FASTEXPR language first
-    response = session.get(
-        f'{BASE_URL}/operators',
-        params={'language': 'FASTEXPR'}
-    )
-
-    if response.status_code == 200:
+    response = _get_with_retry(f'{BASE_URL}/operators', params={'language': 'FASTEXPR'})
+    if response and response.status_code == 200:
         operators = response.json()
         print(f"Fetched {len(operators)} operators")
         return operators
     else:
-        print(f"Error fetching operators: HTTP {response.status_code}")
-        print(response.text[:500])
+        code = response.status_code if response else 'timeout'
+        print(f"Error fetching operators: HTTP {code}")
         return []
 
 
@@ -152,7 +218,6 @@ def analyze_fields(fields):
     for sub, flds in sorted(subcategories.items(), key=lambda x: -len(x[1])):
         print(f"  {sub}: {len(flds)} fields")
 
-    # Find fields relevant to our target signal types
     print("\n" + "=" * 60)
     print("FIELDS FOR TARGET SIGNAL FAMILIES")
     print("=" * 60)
@@ -174,8 +239,7 @@ def analyze_fields(fields):
                 if kw in fid or kw in fdesc:
                     matches.append(f)
                     break
-        
-        # Deduplicate
+
         seen = set()
         for m in matches:
             mid = m['id']
@@ -200,7 +264,6 @@ def analyze_operators(operators):
     elif isinstance(operators, dict):
         op_list = operators.get('results', operators.get('operators', []))
         if not op_list and 'count' not in operators:
-            # might be a dict of categories
             print("\nOperator response structure:")
             for key in operators:
                 val = operators[key]
@@ -236,11 +299,9 @@ def analyze_operators(operators):
 
 
 if __name__ == '__main__':
-    # Scrape
     fields = scrape_data_fields()
     operators = scrape_operators()
 
-    # Save raw data
     with open('brain_fields.json', 'w') as f:
         json.dump(fields, f, indent=2)
     print(f"\nSaved {len(fields)} fields to brain_fields.json")
@@ -249,11 +310,9 @@ if __name__ == '__main__':
         json.dump(operators, f, indent=2)
     print(f"Saved operators to brain_operators.json")
 
-    # Analyze
     categories, datasets, subcategories = analyze_fields(fields)
     analyze_operators(operators)
 
-    # Save summary
     summary = {
         'total_fields': len(fields),
         'categories': {k: len(v) for k, v in categories.items()},

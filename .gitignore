@@ -1,0 +1,12 @@
+*.db
+*.pkl
+scraped_skill.md
+__pycache__/
+.vscode/
+.idea/
+*.log
+*.txt
+!requirements.txt
+!README.md
+alpha_intelligence.json
+

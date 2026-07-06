@@ -1,0 +1,1004 @@
+{
+  "total_templates": 86,
+  "scraped_expressions": 34,
+  "templates": [
+    {
+      "name": "pv_mean_reversion_5d",
+      "category": "pv",
+      "expression": "-(close - ts_mean(close, 5))",
+      "settings": {
+        "neutralization": "MARKET",
+        "decay": 5,
+        "truncation": 0.01
+      },
+      "field_slot": null
+    },
+    {
+      "name": "pv_vwap_reversion",
+      "category": "pv",
+      "expression": "rank(vwap / close)",
+      "settings": {
+        "neutralization": "MARKET",
+        "decay": 5,
+        "truncation": 0.01
+      },
+      "field_slot": null
+    },
+    {
+      "name": "pv_candlestick",
+      "category": "pv",
+      "expression": "group_zscore(-(close - open) / (high - low), subindustry)",
+      "settings": {
+        "neutralization": "SUBINDUSTRY",
+        "decay": 3,
+        "truncation": 0.01
+      },
+      "field_slot": null
+    },
+    {
+      "name": "pv_vwap_zscore_rank",
+      "category": "pv",
+      "expression": "group_rank(ts_zscore(vwap/close, 250), subindustry)",
+      "settings": {
+        "neutralization": "SUBINDUSTRY",
+        "decay": 3,
+        "truncation": 0.01
+      },
+      "field_slot": null
+    },
+    {
+      "name": "pv_regression_residual",
+      "category": "pv",
+      "expression": "-ts_regression(returns, ts_delay(returns, 1), 252)",
+      "settings": {
+        "neutralization": "SUBINDUSTRY",
+        "decay": 5,
+        "truncation": 0.01
+      },
+      "field_slot": null
+    },
+    {
+      "name": "pv_vol_regime_reversion",
+      "category": "pv",
+      "expression": "trade_when(ts_rank(ts_std_dev(returns, 22), 252) > 0.55, -ts_regression(returns, ts_delay(returns,1), 252), -1)",
+      "settings": {
+        "neutralization": "SUBINDUSTRY",
+        "decay": 5,
+        "truncation": 0.1
+      },
+      "field_slot": null
+    },
+    {
+      "name": "pv_high_low_reversion",
+      "category": "pv",
+      "expression": "(high + low)/2 - close",
+      "settings": {
+        "neutralization": "MARKET",
+        "decay": 10,
+        "truncation": 0.01
+      },
+      "field_slot": null
+    },
+    {
+      "name": "pv_delta_reversion",
+      "category": "pv",
+      "expression": "-ts_delta(close, 5)",
+      "settings": {
+        "neutralization": "MARKET",
+        "decay": 20,
+        "truncation": 0.01
+      },
+      "field_slot": null
+    },
+    {
+      "name": "pv_volume_price_corr",
+      "category": "pv",
+      "expression": "-ts_corr(ts_rank(volume, 10), ts_rank(vwap, 10), 20)",
+      "settings": {
+        "neutralization": "SUBINDUSTRY",
+        "decay": 3,
+        "truncation": 0.1
+      },
+      "field_slot": null
+    },
+    {
+      "name": "pv_volume_spike_reversion",
+      "category": "pv",
+      "expression": "trade_when(ts_arg_max(volume, 5) == 0, -rank(ts_delta(close, 3)), -1)",
+      "settings": {
+        "neutralization": "SUBINDUSTRY",
+        "decay": 3,
+        "truncation": 0.1
+      },
+      "field_slot": null
+    },
+    {
+      "name": "pv_zscore_combo",
+      "category": "pv",
+      "expression": "zscore(vwap / close) * (1 - rank(high / low))",
+      "settings": {
+        "neutralization": "MARKET",
+        "decay": 15,
+        "truncation": 0.01
+      },
+      "field_slot": null
+    },
+    {
+      "name": "pv_complex_reversion",
+      "category": "pv",
+      "expression": "decay_days = 2; rel_days_since_max = rank(ts_arg_max(close, 30)); decline_pct = (vwap - close) / close; decline_pct / min(ts_decay_linear(rel_days_since_max, decay_days), 0.20)",
+      "settings": {
+        "neutralization": "SUBINDUSTRY",
+        "decay": 10,
+        "truncation": 0.01
+      },
+      "field_slot": null
+    },
+    {
+      "name": "pv_sma_reversion",
+      "category": "pv",
+      "expression": "signal = ts_mean(close, 20) / ts_mean(close, 5); signed_power(ts_zscore(signal, 480), 2)",
+      "settings": {
+        "neutralization": "MARKET",
+        "decay": 5,
+        "truncation": 0.01
+      },
+      "field_slot": null
+    },
+    {
+      "name": "fnd_ts_rank_ratio",
+      "category": "fundamental",
+      "expression": "ts_rank({FIELD}/cap, 252)",
+      "settings": {
+        "neutralization": "INDUSTRY",
+        "decay": 5,
+        "truncation": 0.1
+      },
+      "field_slot": "FIELD"
+    },
+    {
+      "name": "fnd_zscore_short",
+      "category": "fundamental",
+      "expression": "-ts_zscore({FIELD}, 63)",
+      "settings": {
+        "neutralization": "SUBINDUSTRY",
+        "decay": 0,
+        "truncation": 0.1
+      },
+      "field_slot": "FIELD"
+    },
+    {
+      "name": "fnd_ts_rank_long",
+      "category": "fundamental",
+      "expression": "ts_rank({FIELD}, 252)",
+      "settings": {
+        "neutralization": "INDUSTRY",
+        "decay": 0,
+        "truncation": 0.01
+      },
+      "field_slot": "FIELD"
+    },
+    {
+      "name": "fnd_ts_rank_short",
+      "category": "fundamental",
+      "expression": "-ts_rank({FIELD}, 63)",
+      "settings": {
+        "neutralization": "INDUSTRY",
+        "decay": 5,
+        "truncation": 0.01
+      },
+      "field_slot": "FIELD"
+    },
+    {
+      "name": "fnd_av_diff",
+      "category": "fundamental",
+      "expression": "ts_av_diff({FIELD}, 500)",
+      "settings": {
+        "neutralization": "SUBINDUSTRY",
+        "decay": 0,
+        "truncation": 0.08
+      },
+      "field_slot": "FIELD"
+    },
+    {
+      "name": "fnd_group_zscore",
+      "category": "fundamental",
+      "expression": "group_zscore(ts_zscore({FIELD}, 20), sector)",
+      "settings": {
+        "neutralization": "SECTOR",
+        "decay": 8,
+        "truncation": 0.01
+      },
+      "field_slot": "FIELD"
+    },
+    {
+      "name": "fnd_delta_rank",
+      "category": "fundamental",
+      "expression": "rank(ts_delta({FIELD}, 90))",
+      "settings": {
+        "neutralization": "SUBINDUSTRY",
+        "decay": 5,
+        "truncation": 0.01
+      },
+      "field_slot": "FIELD"
+    },
+    {
+      "name": "fnd_pb_reversion",
+      "category": "fundamental",
+      "expression": "rank(-({FIELD} - ts_max({FIELD}, 10)))",
+      "settings": {
+        "neutralization": "SUBINDUSTRY",
+        "decay": 3,
+        "truncation": 0.01
+      },
+      "field_slot": "FIELD"
+    },
+    {
+      "name": "anl_ts_rank",
+      "category": "analyst",
+      "expression": "ts_rank({FIELD}, 252)",
+      "settings": {
+        "neutralization": "SUBINDUSTRY",
+        "decay": 0,
+        "truncation": 0.01
+      },
+      "field_slot": "FIELD"
+    },
+    {
+      "name": "anl_ts_rank_short",
+      "category": "analyst",
+      "expression": "-ts_rank({FIELD}, 63)",
+      "settings": {
+        "neutralization": "SECTOR",
+        "decay": 5,
+        "truncation": 0.05
+      },
+      "field_slot": "FIELD"
+    },
+    {
+      "name": "anl_raw_flag",
+      "category": "analyst",
+      "expression": "{FIELD}",
+      "settings": {
+        "neutralization": "SECTOR",
+        "decay": 5,
+        "truncation": 0.05
+      },
+      "field_slot": "FIELD"
+    },
+    {
+      "name": "anl_negated_flag",
+      "category": "analyst",
+      "expression": "-{FIELD}",
+      "settings": {
+        "neutralization": "SECTOR",
+        "decay": 5,
+        "truncation": 0.05
+      },
+      "field_slot": "FIELD"
+    },
+    {
+      "name": "anl_zscore",
+      "category": "analyst",
+      "expression": "zscore({FIELD})",
+      "settings": {
+        "neutralization": "SUBINDUSTRY",
+        "decay": 5,
+        "truncation": 0.01
+      },
+      "field_slot": "FIELD"
+    },
+    {
+      "name": "news_sentiment_conditional",
+      "category": "news",
+      "expression": "avg_news = vec_avg({FIELD}); rank(ts_sum(avg_news, 60)) > 0.5 ? 1 : rank(-ts_delta(close, 2))",
+      "settings": {
+        "neutralization": "SUBINDUSTRY",
+        "decay": 3,
+        "truncation": 0.01
+      },
+      "field_slot": "FIELD"
+    },
+    {
+      "name": "news_regression",
+      "category": "news",
+      "expression": "-ts_regression(returns, ts_delay(vec_avg({FIELD}), 1), 120)",
+      "settings": {
+        "neutralization": "SUBINDUSTRY",
+        "decay": 15,
+        "truncation": 0.1
+      },
+      "field_slot": "FIELD"
+    },
+    {
+      "name": "news_backfill_diff",
+      "category": "news",
+      "expression": "buzz = ts_backfill(-vec_sum({FIELD}), 20); ts_av_diff(buzz, 60)",
+      "settings": {
+        "neutralization": "INDUSTRY",
+        "decay": 15,
+        "truncation": 0.08
+      },
+      "field_slot": "FIELD"
+    },
+    {
+      "name": "news_vec_backfill",
+      "category": "news",
+      "expression": "ts_backfill(-vec_avg({FIELD}), 20)",
+      "settings": {
+        "neutralization": "INDUSTRY",
+        "decay": 10,
+        "truncation": 0.01
+      },
+      "field_slot": "FIELD"
+    },
+    {
+      "name": "opt_delay_ratio",
+      "category": "option",
+      "expression": "ts_delay({FIELD}, 7) / close",
+      "settings": {
+        "neutralization": "INDUSTRY",
+        "decay": 0,
+        "truncation": 0.03
+      },
+      "field_slot": "FIELD"
+    },
+    {
+      "name": "opt_iv_spread",
+      "category": "option",
+      "expression": "zscore(implied_volatility_call_720 - implied_volatility_put_720)",
+      "settings": {
+        "neutralization": "MARKET",
+        "decay": 3,
+        "truncation": 0.01
+      },
+      "field_slot": null
+    },
+    {
+      "name": "opt_iv_decay",
+      "category": "option",
+      "expression": "ts_decay_linear(ts_delta(implied_volatility_call_60, 25) > 0, 20)",
+      "settings": {
+        "neutralization": "SUBINDUSTRY",
+        "decay": 0,
+        "truncation": 0.03
+      },
+      "field_slot": null
+    },
+    {
+      "name": "opt_ts_rank",
+      "category": "option",
+      "expression": "ts_rank({FIELD}, 252)",
+      "settings": {
+        "neutralization": "SECTOR",
+        "decay": 3,
+        "truncation": 0.05
+      },
+      "field_slot": "FIELD"
+    },
+    {
+      "name": "mdl_ts_rank",
+      "category": "model",
+      "expression": "ts_rank({FIELD}, 250)",
+      "settings": {
+        "neutralization": "INDUSTRY",
+        "decay": 0,
+        "truncation": 0.01
+      },
+      "field_slot": "FIELD"
+    },
+    {
+      "name": "mdl_group_zscore",
+      "category": "model",
+      "expression": "group_zscore(ts_zscore({FIELD}, 20), sector)",
+      "settings": {
+        "neutralization": "SECTOR",
+        "decay": 8,
+        "truncation": 0.1
+      },
+      "field_slot": "FIELD"
+    },
+    {
+      "name": "mdl_volatility",
+      "category": "model",
+      "expression": "rank(-{FIELD})",
+      "settings": {
+        "neutralization": "MARKET",
+        "decay": 3,
+        "truncation": 0.1
+      },
+      "field_slot": "FIELD"
+    },
+    {
+      "name": "risk_ts_rank",
+      "category": "model",
+      "expression": "ts_rank({FIELD}, 63)",
+      "settings": {
+        "neutralization": "SUBINDUSTRY",
+        "decay": 15,
+        "truncation": 0.05
+      },
+      "field_slot": "FIELD"
+    },
+    {
+      "name": "risk_ts_rank_long",
+      "category": "model",
+      "expression": "ts_rank({FIELD}, 252)",
+      "settings": {
+        "neutralization": "SUBINDUSTRY",
+        "decay": 5,
+        "truncation": 0.05
+      },
+      "field_slot": "FIELD"
+    },
+    {
+      "name": "generic_raw",
+      "category": "generic",
+      "expression": "{FIELD}",
+      "settings": {
+        "neutralization": "SECTOR",
+        "decay": 5,
+        "truncation": 0.05
+      },
+      "field_slot": "FIELD"
+    },
+    {
+      "name": "generic_negated",
+      "category": "generic",
+      "expression": "-{FIELD}",
+      "settings": {
+        "neutralization": "SECTOR",
+        "decay": 5,
+        "truncation": 0.05
+      },
+      "field_slot": "FIELD"
+    },
+    {
+      "name": "generic_ts_rank_252",
+      "category": "generic",
+      "expression": "ts_rank({FIELD}, 252)",
+      "settings": {
+        "neutralization": "SECTOR",
+        "decay": 5,
+        "truncation": 0.05
+      },
+      "field_slot": "FIELD"
+    },
+    {
+      "name": "generic_ts_rank_63",
+      "category": "generic",
+      "expression": "ts_rank({FIELD}, 63)",
+      "settings": {
+        "neutralization": "SUBINDUSTRY",
+        "decay": 5,
+        "truncation": 0.05
+      },
+      "field_slot": "FIELD"
+    },
+    {
+      "name": "generic_ts_av_diff",
+      "category": "generic",
+      "expression": "ts_av_diff({FIELD}, 63)",
+      "settings": {
+        "neutralization": "SUBINDUSTRY",
+        "decay": 5,
+        "truncation": 0.05
+      },
+      "field_slot": "FIELD"
+    },
+    {
+      "name": "generic_deviation",
+      "category": "generic",
+      "expression": "{FIELD} - ts_mean({FIELD}, 252)",
+      "settings": {
+        "neutralization": "SECTOR",
+        "decay": 5,
+        "truncation": 0.05
+      },
+      "field_slot": "FIELD"
+    },
+    {
+      "name": "generic_zscore",
+      "category": "generic",
+      "expression": "ts_zscore({FIELD}, 63)",
+      "settings": {
+        "neutralization": "SECTOR",
+        "decay": 5,
+        "truncation": 0.05
+      },
+      "field_slot": "FIELD"
+    },
+    {
+      "name": "generic_ts_quantile",
+      "category": "generic",
+      "expression": "ts_quantile({FIELD}, 252)",
+      "settings": {
+        "neutralization": "SECTOR",
+        "decay": 5,
+        "truncation": 0.05
+      },
+      "field_slot": "FIELD"
+    },
+    {
+      "name": "scraped_47",
+      "category": "pv",
+      "expression": "group_zscore( -(close - open) / (high - low), subindustry )",
+      "settings": {
+        "neutralization": "SUBINDUSTRY",
+        "decay": 5,
+        "truncation": 0.01
+      },
+      "field_slot": null,
+      "source": "scraped"
+    },
+    {
+      "name": "scraped_48",
+      "category": "pv",
+      "expression": "group_rank( ts_zscore(vwap/close, 250), subindustry )",
+      "settings": {
+        "neutralization": "SUBINDUSTRY",
+        "decay": 5,
+        "truncation": 0.01
+      },
+      "field_slot": null,
+      "source": "scraped"
+    },
+    {
+      "name": "scraped_49",
+      "category": "pv",
+      "expression": "trade_when( ts_rank( ts_std_dev(returns, 22), 252 ) > 0.55, \n                      -ts_regression(returns, ts_delay(returns,1), 252), -1\n                    )",
+      "settings": {
+        "neutralization": "SUBINDUSTRY",
+        "decay": 5,
+        "truncation": 0.01
+      },
+      "field_slot": null,
+      "source": "scraped"
+    },
+    {
+      "name": "scraped_50",
+      "category": "pv",
+      "expression": "signal = ts_mean(close, 20) / ts_mean(close, 5);",
+      "settings": {
+        "neutralization": "SUBINDUSTRY",
+        "decay": 5,
+        "truncation": 0.01
+      },
+      "field_slot": null,
+      "source": "scraped"
+    },
+    {
+      "name": "scraped_51",
+      "category": "pv",
+      "expression": "window = 20; average = (high + low + close + open) / 4;",
+      "settings": {
+        "neutralization": "SUBINDUSTRY",
+        "decay": 5,
+        "truncation": 0.01
+      },
+      "field_slot": null,
+      "source": "scraped"
+    },
+    {
+      "name": "scraped_53",
+      "category": "pv",
+      "expression": "ts_zscore(signal, 240)",
+      "settings": {
+        "neutralization": "SUBINDUSTRY",
+        "decay": 5,
+        "truncation": 0.01
+      },
+      "field_slot": null,
+      "source": "scraped"
+    },
+    {
+      "name": "scraped_55",
+      "category": "pv",
+      "expression": "ts_rank(equity / cap, 20)",
+      "settings": {
+        "neutralization": "SUBINDUSTRY",
+        "decay": 5,
+        "truncation": 0.01
+      },
+      "field_slot": null,
+      "source": "scraped"
+    },
+    {
+      "name": "scraped_56",
+      "category": "pv",
+      "expression": "group_zscore( ts_zscore(mdf_gry, 20), sector )",
+      "settings": {
+        "neutralization": "SUBINDUSTRY",
+        "decay": 5,
+        "truncation": 0.01
+      },
+      "field_slot": null,
+      "source": "scraped"
+    },
+    {
+      "name": "scraped_57",
+      "category": "pv",
+      "expression": "ts_rank(operating_income/cap, 252)",
+      "settings": {
+        "neutralization": "SUBINDUSTRY",
+        "decay": 5,
+        "truncation": 0.01
+      },
+      "field_slot": null,
+      "source": "scraped"
+    },
+    {
+      "name": "scraped_58",
+      "category": "pv",
+      "expression": "ts_quantile(mdf_oey, 252)",
+      "settings": {
+        "neutralization": "SUBINDUSTRY",
+        "decay": 5,
+        "truncation": 0.01
+      },
+      "field_slot": null,
+      "source": "scraped"
+    },
+    {
+      "name": "scraped_59",
+      "category": "pv",
+      "expression": "ts_av_diff(mdf_nps, 500)",
+      "settings": {
+        "neutralization": "SUBINDUSTRY",
+        "decay": 5,
+        "truncation": 0.01
+      },
+      "field_slot": null,
+      "source": "scraped"
+    },
+    {
+      "name": "scraped_60",
+      "category": "pv",
+      "expression": "rank( ts_sum( vec_avg(nws12_afterhsz_sl), 60 ) ) > 0.5 ? \n  1 : rank( -ts_delta(close, 2) )*1",
+      "settings": {
+        "neutralization": "SUBINDUSTRY",
+        "decay": 5,
+        "truncation": 0.01
+      },
+      "field_slot": null,
+      "source": "scraped"
+    },
+    {
+      "name": "scraped_61",
+      "category": "pv",
+      "expression": "when = ts_arg_max(volume, 5) == 0; trade_when(when, -rank(ts_delta(close, 3)),\n-1)",
+      "settings": {
+        "neutralization": "SUBINDUSTRY",
+        "decay": 5,
+        "truncation": 0.01
+      },
+      "field_slot": null,
+      "source": "scraped"
+    },
+    {
+      "name": "scraped_62",
+      "category": "pv",
+      "expression": "rank(ts_delta(retained_earnings / sharesout, 90))",
+      "settings": {
+        "neutralization": "SUBINDUSTRY",
+        "decay": 5,
+        "truncation": 0.01
+      },
+      "field_slot": null,
+      "source": "scraped"
+    },
+    {
+      "name": "scraped_63",
+      "category": "pv",
+      "expression": "ts_delay(call_breakeven_10, 7) / close",
+      "settings": {
+        "neutralization": "SUBINDUSTRY",
+        "decay": 5,
+        "truncation": 0.01
+      },
+      "field_slot": null,
+      "source": "scraped"
+    },
+    {
+      "name": "scraped_64",
+      "category": "pv",
+      "expression": "a = above; trade_when(ts_arg_max(pcr_vol_10, 7) < 1, a, -1)",
+      "settings": {
+        "neutralization": "SUBINDUSTRY",
+        "decay": 5,
+        "truncation": 0.01
+      },
+      "field_slot": null,
+      "source": "scraped"
+    },
+    {
+      "name": "scraped_65",
+      "category": "pv",
+      "expression": "a = above; vector_neut(a, (cap))",
+      "settings": {
+        "neutralization": "SUBINDUSTRY",
+        "decay": 5,
+        "truncation": 0.01
+      },
+      "field_slot": null,
+      "source": "scraped"
+    },
+    {
+      "name": "scraped_66",
+      "category": "pv",
+      "expression": "rank(-mdl175_volatility * log(volume)) * (1 + group_rank(mdl175_revenuettm,\n    sector))",
+      "settings": {
+        "neutralization": "SUBINDUSTRY",
+        "decay": 5,
+        "truncation": 0.01
+      },
+      "field_slot": null,
+      "source": "scraped"
+    },
+    {
+      "name": "scraped_68",
+      "category": "pv",
+      "expression": "buzz = ts_backfill(-vec_sum(scl12_alltype_buzzvec), 20); ts_av_diff(buzz, 60)",
+      "settings": {
+        "neutralization": "SUBINDUSTRY",
+        "decay": 5,
+        "truncation": 0.01
+      },
+      "field_slot": null,
+      "source": "scraped"
+    },
+    {
+      "name": "scraped_69",
+      "category": "pv",
+      "expression": "ts_backfill(-vec_avg(nws12_afterhsz_maxupamt), 20)",
+      "settings": {
+        "neutralization": "SUBINDUSTRY",
+        "decay": 5,
+        "truncation": 0.01
+      },
+      "field_slot": null,
+      "source": "scraped"
+    },
+    {
+      "name": "scraped_70",
+      "category": "pv",
+      "expression": "a = above; neut_a = vector_neut(a, ts_mean(returns, 250)); decay_a =\n    ts_decay_exp_window(neut_a, 20, factor=0.4); group_neutralize(decay_a,\n    densify((industry+1)*10 + exchange))",
+      "settings": {
+        "neutralization": "SUBINDUSTRY",
+        "decay": 5,
+        "truncation": 0.01
+      },
+      "field_slot": null,
+      "source": "scraped"
+    },
+    {
+      "name": "scraped_71",
+      "category": "pv",
+      "expression": "avg_ret = power(ts_product(returns+1, 5), 1/5); comp_avg =\npower(ts_product(rel_ret_comp+1, 5), 1/5); a = zscore(comp_avg / avg_ret);\nwhen = ts_rank(ts_std_dev(returns, 60), 126) > 0.55; trade_when(when, a, -1)",
+      "settings": {
+        "neutralization": "SUBINDUSTRY",
+        "decay": 5,
+        "truncation": 0.01
+      },
+      "field_slot": null,
+      "source": "scraped"
+    },
+    {
+      "name": "scraped_72",
+      "category": "pv",
+      "expression": "rank(-(mdf_pbk - ts_max(mdf_pbk, 10)))",
+      "settings": {
+        "neutralization": "SUBINDUSTRY",
+        "decay": 5,
+        "truncation": 0.01
+      },
+      "field_slot": null,
+      "source": "scraped"
+    },
+    {
+      "name": "scraped_73",
+      "category": "pv",
+      "expression": "rank(ts_sum(vec_avg(nws12_afterhsz_s1), 60)) > 0.5 ? 1 : above",
+      "settings": {
+        "neutralization": "SUBINDUSTRY",
+        "decay": 5,
+        "truncation": 0.01
+      },
+      "field_slot": null,
+      "source": "scraped"
+    },
+    {
+      "name": "scraped_74",
+      "category": "pv",
+      "expression": "group_neutralize(above, densify(pv13_r2_min20_3000_sector))",
+      "settings": {
+        "neutralization": "SUBINDUSTRY",
+        "decay": 5,
+        "truncation": 0.01
+      },
+      "field_slot": null,
+      "source": "scraped"
+    },
+    {
+      "name": "scraped_76",
+      "category": "pv",
+      "expression": "ts_regression",
+      "settings": {
+        "neutralization": "SUBINDUSTRY",
+        "decay": 5,
+        "truncation": 0.01
+      },
+      "field_slot": null,
+      "source": "scraped"
+    },
+    {
+      "name": "scraped_77",
+      "category": "pv",
+      "expression": "ts_regression(...\nrettype=3)",
+      "settings": {
+        "neutralization": "SUBINDUSTRY",
+        "decay": 5,
+        "truncation": 0.01
+      },
+      "field_slot": null,
+      "source": "scraped"
+    },
+    {
+      "name": "gold_grp_ts_rank_subind_63",
+      "category": "generic",
+      "expression": "group_rank(ts_rank({FIELD}, 63), subindustry)",
+      "settings": {
+        "neutralization": "SUBINDUSTRY",
+        "decay": 0,
+        "truncation": 0.08,
+        "nan_handling": "ON"
+      },
+      "field_slot": "FIELD",
+      "source": "research"
+    },
+    {
+      "name": "gold_grp_ts_rank_ind_126",
+      "category": "generic",
+      "expression": "group_rank(ts_rank({FIELD}, 126), industry)",
+      "settings": {
+        "neutralization": "INDUSTRY",
+        "decay": 0,
+        "truncation": 0.08,
+        "nan_handling": "ON"
+      },
+      "field_slot": "FIELD",
+      "source": "research"
+    },
+    {
+      "name": "gold_grp_ts_rank_subind_252",
+      "category": "generic",
+      "expression": "group_rank(ts_rank({FIELD}, 252), subindustry)",
+      "settings": {
+        "neutralization": "SUBINDUSTRY",
+        "decay": 0,
+        "truncation": 0.08,
+        "nan_handling": "ON"
+      },
+      "field_slot": "FIELD",
+      "source": "research"
+    },
+    {
+      "name": "gold_grp_ts_zscore_subind",
+      "category": "generic",
+      "expression": "group_rank(ts_zscore({FIELD}, 63), subindustry)",
+      "settings": {
+        "neutralization": "SUBINDUSTRY",
+        "decay": 0,
+        "truncation": 0.08,
+        "nan_handling": "ON"
+      },
+      "field_slot": "FIELD",
+      "source": "research"
+    },
+    {
+      "name": "gold_fnd_oi_equity",
+      "category": "pv",
+      "expression": "group_rank(ts_rank(operating_income / equity, 126), subindustry)",
+      "settings": {
+        "neutralization": "SUBINDUSTRY",
+        "decay": 0,
+        "truncation": 0.08,
+        "nan_handling": "ON"
+      },
+      "field_slot": null,
+      "source": "research"
+    },
+    {
+      "name": "gold_fnd_eps_close",
+      "category": "pv",
+      "expression": "group_rank(ts_rank(est_eps / close, 252), subindustry)",
+      "settings": {
+        "neutralization": "SUBINDUSTRY",
+        "decay": 0,
+        "truncation": 0.08,
+        "nan_handling": "ON"
+      },
+      "field_slot": null,
+      "source": "research"
+    },
+    {
+      "name": "gold_fnd_asset_turnover",
+      "category": "pv",
+      "expression": "group_rank(ts_rank(operating_income / sales * sales / assets, 126), subindustry)",
+      "settings": {
+        "neutralization": "SUBINDUSTRY",
+        "decay": 0,
+        "truncation": 0.08,
+        "nan_handling": "ON"
+      },
+      "field_slot": null,
+      "source": "research"
+    },
+    {
+      "name": "gold_multi_roe_eps",
+      "category": "pv",
+      "expression": "0.5 * group_rank(ts_rank(operating_income / equity, 126), subindustry) + 0.5 * group_rank(ts_rank(est_eps / close, 126), industry)",
+      "settings": {
+        "neutralization": "SUBINDUSTRY",
+        "decay": 4,
+        "truncation": 0.08,
+        "nan_handling": "ON"
+      },
+      "field_slot": null,
+      "source": "research"
+    },
+    {
+      "name": "gold_anl_grp_rank_flag",
+      "category": "analyst",
+      "expression": "group_rank(ts_rank({FIELD}, 63), subindustry)",
+      "settings": {
+        "neutralization": "SUBINDUSTRY",
+        "decay": 0,
+        "truncation": 0.08,
+        "nan_handling": "ON"
+      },
+      "field_slot": "FIELD",
+      "source": "research"
+    },
+    {
+      "name": "gold_anl_delta_rank",
+      "category": "analyst",
+      "expression": "group_rank(ts_rank(ts_delta({FIELD}, 63), 126), subindustry)",
+      "settings": {
+        "neutralization": "SUBINDUSTRY",
+        "decay": 0,
+        "truncation": 0.08,
+        "nan_handling": "ON"
+      },
+      "field_slot": "FIELD",
+      "source": "research"
+    },
+    {
+      "name": "gold_mdl_grp_ts_rank",
+      "category": "model",
+      "expression": "group_rank(ts_rank({FIELD}, 63), subindustry)",
+      "settings": {
+        "neutralization": "SUBINDUSTRY",
+        "decay": 0,
+        "truncation": 0.08,
+        "nan_handling": "ON"
+      },
+      "field_slot": "FIELD",
+      "source": "research"
+    },
+    {
+      "name": "gold_tech_fund_mixed",
+      "category": "pv",
+      "expression": "0.5 * rank(-(close / open - 1)) + 0.5 * rank(ts_rank(operating_income / equity, 126))",
+      "settings": {
+        "neutralization": "INDUSTRY",
+        "decay": 8,
+        "truncation": 0.08,
+        "nan_handling": "OFF"
+      },
+      "field_slot": null,
+      "source": "research"
+    }
+  ],
+  "golden_templates_added": 12
+}
