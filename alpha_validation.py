@@ -12,6 +12,35 @@ FIELD_TOKEN_RE = re.compile(r"\b[a-zA-Z_][a-zA-Z0-9_]*\b")
 WINDOW_RE = re.compile(r",\s*(\d+)\)")
 OPERATOR_RE = re.compile(r"\b(ts_[a-z_]+|group_[a-z_]+|vec_[a-z_]+|rank|zscore|quantile|trade_when)\b")
 
+# Load valid operator names from brain_operators.json
+def _load_operator_names():
+    import os
+    path = os.path.join(os.path.dirname(__file__), "brain_operators.json")
+    if os.path.exists(path):
+        with open(path) as f:
+            return {op["name"] for op in json.load(f)}
+    return set()
+
+VALID_OPERATOR_NAMES = _load_operator_names()
+
+
+def validate_operators(expression):
+    """Check that all operators in an expression exist in brain_operators.json.
+
+    Returns (is_valid, list_of_invalid_operators).
+    """
+    found_ops = set(OPERATOR_RE.findall(expression))
+    # These are always valid (built-in or aliases)
+    always_valid = {"rank", "zscore", "quantile", "trade_when"}
+    invalid = []
+    for op in found_ops:
+        if op in always_valid:
+            continue
+        if op in VALID_OPERATOR_NAMES:
+            continue
+        invalid.append(op)
+    return (len(invalid) == 0), invalid
+
 KEYWORDS = {
     "if", "else", "true", "false", "rank", "zscore", "quantile", "trade_when",
     "returns", "close", "open", "high", "low", "volume", "vwap",

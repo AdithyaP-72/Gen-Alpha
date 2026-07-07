@@ -1,0 +1,302 @@
+{
+  "generated_at": "2026-07-07 16:42:01",
+  "papers_processed": 5,
+  "total_expressions": 14,
+  "valid_expressions": 14,
+  "alphas": [
+    {
+      "expression": "group_rank(ts_zscore(close / price, 63), subindustry)",
+      "settings": {
+        "universe": "TOP3000",
+        "neutralization": "INDUSTRY",
+        "decay": 20,
+        "truncation": 0.1,
+        "delay": 1,
+        "nan_handling": "ON"
+      },
+      "source": "llm-arxiv",
+      "paper_title": "Equity Factors: To Short Or Not To Short, That Is The Question",
+      "paper_url": "http://arxiv.org/abs/2003.10419v3",
+      "anomaly": "A long-short implementation of equity factors can lead to superior risk-adjusted returns compared to a hedged long-only approach.",
+      "signal_type": "other",
+      "rationale": "This expression captures the anomaly by ranking stocks based on their price momentum relative to their industry peers.",
+      "llm_confidence": 0.7,
+      "anomaly_confidence": 0.8,
+      "valid": true,
+      "validation_reason": null
+    },
+    {
+      "expression": "-ts_regression(returns, ts_delay(returns, 1), 63)",
+      "settings": {
+        "universe": "TOP3000",
+        "neutralization": "SECTOR",
+        "decay": 20,
+        "truncation": 0.2,
+        "delay": 1,
+        "nan_handling": "ON"
+      },
+      "source": "llm-arxiv",
+      "paper_title": "Equity Factors: To Short Or Not To Short, That Is The Question",
+      "paper_url": "http://arxiv.org/abs/2003.10419v3",
+      "anomaly": "A long-short implementation of equity factors can lead to superior risk-adjusted returns compared to a hedged long-only approach.",
+      "signal_type": "other",
+      "rationale": "This expression exploits the anomaly by identifying stocks with negative momentum and shorting them, while going long on stocks with positive momentum.",
+      "llm_confidence": 0.6,
+      "anomaly_confidence": 0.8,
+      "valid": true,
+      "validation_reason": null
+    },
+    {
+      "expression": "0.5 * group_rank(ts_rank(close / price, 63), subindustry) + 0.5 * group_rank(ts_rank(factor_exposures, 63), industry)",
+      "settings": {
+        "universe": "TOP3000",
+        "neutralization": "MARKET",
+        "decay": 20,
+        "truncation": 0.15,
+        "delay": 1,
+        "nan_handling": "ON"
+      },
+      "source": "llm-arxiv",
+      "paper_title": "Equity Factors: To Short Or Not To Short, That Is The Question",
+      "paper_url": "http://arxiv.org/abs/2003.10419v3",
+      "anomaly": "A long-short implementation of equity factors can lead to superior risk-adjusted returns compared to a hedged long-only approach.",
+      "signal_type": "other",
+      "rationale": "This expression combines two signals: one based on price momentum and the other based on factor exposures, to create a hybrid long-short strategy.",
+      "llm_confidence": 0.8,
+      "anomaly_confidence": 0.8,
+      "valid": true,
+      "validation_reason": null
+    },
+    {
+      "expression": "trade_when(ts_rank(ts_std_dev(returns, 22), 63) > 0.55, -ts_regression(returns, ts_delay(returns,1), 63), -1)",
+      "settings": {
+        "universe": "TOP3000",
+        "neutralization": "INDUSTRY",
+        "decay": 20,
+        "truncation": 0.1,
+        "delay": 1,
+        "nan_handling": "ON"
+      },
+      "source": "llm-arxiv",
+      "paper_title": "Equity Factors: To Short Or Not To Short, That Is The Question",
+      "paper_url": "http://arxiv.org/abs/2003.10419v3",
+      "anomaly": "A long-short implementation of equity factors can lead to superior risk-adjusted returns compared to a hedged long-only approach.",
+      "signal_type": "other",
+      "rationale": "This expression uses a volatility-based filter to switch between a long-short strategy and a neutral position, depending on market conditions.",
+      "llm_confidence": 0.65,
+      "anomaly_confidence": 0.8,
+      "valid": true,
+      "validation_reason": null
+    },
+    {
+      "expression": "group_rank( ts_zscore(factor_exposures, 63), subindustry )",
+      "settings": {
+        "universe": "TOP3000",
+        "neutralization": "SECTOR",
+        "decay": 20,
+        "truncation": 0.2,
+        "delay": 1,
+        "nan_handling": "ON"
+      },
+      "source": "llm-arxiv",
+      "paper_title": "Equity Factors: To Short Or Not To Short, That Is The Question",
+      "paper_url": "http://arxiv.org/abs/2003.10419v3",
+      "anomaly": "A long-short implementation of equity factors can lead to superior risk-adjusted returns compared to a hedged long-only approach.",
+      "signal_type": "other",
+      "rationale": "This expression ranks stocks based on their factor exposures relative to their industry peers, to identify potential long and short candidates.",
+      "llm_confidence": 0.75,
+      "anomaly_confidence": 0.8,
+      "valid": true,
+      "validation_reason": null
+    },
+    {
+      "expression": "group_rank(ts_rank(ts_delta(close, 21), 42), subindustry)",
+      "settings": {
+        "universe": "TOP3000",
+        "neutralization": "INDUSTRY",
+        "decay": 10,
+        "truncation": 0.2,
+        "delay": 1,
+        "nan_handling": "ON"
+      },
+      "source": "llm-arxiv",
+      "paper_title": "Slow Momentum with Fast Reversion: A Trading Strategy Using Deep Learning and Changepoint Detection",
+      "paper_url": "http://arxiv.org/abs/2105.13727v3",
+      "anomaly": "A trading strategy combining slow momentum with fast mean reversion, using deep learning and changepoint detection, can outperform traditional momentum strategies.",
+      "signal_type": "momentum",
+      "rationale": "This expression combines slow momentum with fast mean reversion by ranking the delta of close price over 21 days within each subindustry.",
+      "llm_confidence": 0.8,
+      "anomaly_confidence": 0.8,
+      "valid": true,
+      "validation_reason": null
+    },
+    {
+      "expression": "rank(ts_sum(ts_delta(close, 5), 21)) > 0.5 ? 1 : rank(-ts_delta(close, 2))",
+      "settings": {
+        "universe": "TOP3000",
+        "neutralization": "SECTOR",
+        "decay": 5,
+        "truncation": 0.1,
+        "delay": 1,
+        "nan_handling": "ON"
+      },
+      "source": "llm-arxiv",
+      "paper_title": "Slow Momentum with Fast Reversion: A Trading Strategy Using Deep Learning and Changepoint Detection",
+      "paper_url": "http://arxiv.org/abs/2105.13727v3",
+      "anomaly": "A trading strategy combining slow momentum with fast mean reversion, using deep learning and changepoint detection, can outperform traditional momentum strategies.",
+      "signal_type": "momentum",
+      "rationale": "This expression uses a ternary conditional to switch between slow momentum and fast mean reversion based on the sum of delta close price over 5 days.",
+      "llm_confidence": 0.7,
+      "anomaly_confidence": 0.8,
+      "valid": true,
+      "validation_reason": null
+    },
+    {
+      "expression": "trade_when(ts_arg_max(volume, 5) == 0, -rank(ts_delta(close, 3)), -1)",
+      "settings": {
+        "universe": "TOP3000",
+        "neutralization": "MARKET",
+        "decay": 15,
+        "truncation": 0.3,
+        "delay": 1,
+        "nan_handling": "ON"
+      },
+      "source": "llm-arxiv",
+      "paper_title": "Slow Momentum with Fast Reversion: A Trading Strategy Using Deep Learning and Changepoint Detection",
+      "paper_url": "http://arxiv.org/abs/2105.13727v3",
+      "anomaly": "A trading strategy combining slow momentum with fast mean reversion, using deep learning and changepoint detection, can outperform traditional momentum strategies.",
+      "signal_type": "momentum",
+      "rationale": "This expression uses trade_when to switch between long and short positions based on the argmax of volume over 5 days, combining slow momentum with fast mean reversion.",
+      "llm_confidence": 0.9,
+      "anomaly_confidence": 0.8,
+      "valid": true,
+      "validation_reason": null
+    },
+    {
+      "expression": "ts_decay_linear(ts_delta(close, 25) > 0, 20)",
+      "settings": {
+        "universe": "TOP3000",
+        "neutralization": "INDUSTRY",
+        "decay": 10,
+        "truncation": 0.2,
+        "delay": 1,
+        "nan_handling": "ON"
+      },
+      "source": "llm-arxiv",
+      "paper_title": "Slow Momentum with Fast Reversion: A Trading Strategy Using Deep Learning and Changepoint Detection",
+      "paper_url": "http://arxiv.org/abs/2105.13727v3",
+      "anomaly": "A trading strategy combining slow momentum with fast mean reversion, using deep learning and changepoint detection, can outperform traditional momentum strategies.",
+      "signal_type": "momentum",
+      "rationale": "This expression uses ts_decay_linear to capture the slow momentum of close price over 25 days, with a decay period of 20 days.",
+      "llm_confidence": 0.6,
+      "anomaly_confidence": 0.8,
+      "valid": true,
+      "validation_reason": null
+    },
+    {
+      "expression": "group_rank(ts_rank(ts_mean(close, 21), 42), subindustry)",
+      "settings": {
+        "universe": "TOP3000",
+        "neutralization": "SECTOR",
+        "decay": 5,
+        "truncation": 0.1,
+        "delay": 1,
+        "nan_handling": "ON"
+      },
+      "source": "llm-arxiv",
+      "paper_title": "Slow Momentum with Fast Reversion: A Trading Strategy Using Deep Learning and Changepoint Detection",
+      "paper_url": "http://arxiv.org/abs/2105.13727v3",
+      "anomaly": "A trading strategy combining slow momentum with fast mean reversion, using deep learning and changepoint detection, can outperform traditional momentum strategies.",
+      "signal_type": "momentum",
+      "rationale": "This expression combines slow momentum with fast mean reversion by ranking the mean of close price over 21 days within each subindustry.",
+      "llm_confidence": 0.8,
+      "anomaly_confidence": 0.8,
+      "valid": true,
+      "validation_reason": null
+    },
+    {
+      "expression": "group_rank(ts_zscore(close, 63), subindustry)",
+      "settings": {
+        "universe": "TOP3000",
+        "neutralization": "INDUSTRY",
+        "decay": 20,
+        "truncation": 0.1,
+        "delay": 1,
+        "nan_handling": "ON"
+      },
+      "source": "llm-arxiv",
+      "paper_title": "Mean Reversion Pays, but Costs",
+      "paper_url": "http://arxiv.org/abs/1103.4934v1",
+      "anomaly": "Buying mean-reverting instruments when they are below their estimated mean level and selling when they are above can be profitable, but requires optimal buffer widths to minimize transaction costs",
+      "signal_type": "mean_reversion",
+      "rationale": "This expression identifies mean-reverting instruments by ranking their z-scores within their subindustries, allowing for optimal buffer widths to minimize transaction costs.",
+      "llm_confidence": 0.8,
+      "anomaly_confidence": 0.8,
+      "valid": true,
+      "validation_reason": null
+    },
+    {
+      "expression": "trade_when(ts_rank(ts_std_dev(returns, 22), 252) > 0.55, -ts_regression(returns, ts_delay(returns,1), 252), -1)",
+      "settings": {
+        "universe": "TOP3000",
+        "neutralization": "SECTOR",
+        "decay": 20,
+        "truncation": 0.2,
+        "delay": 1,
+        "nan_handling": "ON"
+      },
+      "source": "llm-arxiv",
+      "paper_title": "Mean Reversion Pays, but Costs",
+      "paper_url": "http://arxiv.org/abs/1103.4934v1",
+      "anomaly": "Buying mean-reverting instruments when they are below their estimated mean level and selling when they are above can be profitable, but requires optimal buffer widths to minimize transaction costs",
+      "signal_type": "mean_reversion",
+      "rationale": "This expression uses a regression-based approach to identify mean-reverting instruments and trades when the standard deviation of returns is high, indicating potential for mean reversion.",
+      "llm_confidence": 0.7,
+      "anomaly_confidence": 0.8,
+      "valid": true,
+      "validation_reason": null
+    },
+    {
+      "expression": "signal = ts_mean(close, 20) / ts_mean(close, 5); signed_power(ts_zscore(signal, 480), 2)",
+      "settings": {
+        "universe": "TOP3000",
+        "neutralization": "MARKET",
+        "decay": 20,
+        "truncation": 0.3,
+        "delay": 1,
+        "nan_handling": "ON"
+      },
+      "source": "llm-arxiv",
+      "paper_title": "Mean Reversion Pays, but Costs",
+      "paper_url": "http://arxiv.org/abs/1103.4934v1",
+      "anomaly": "Buying mean-reverting instruments when they are below their estimated mean level and selling when they are above can be profitable, but requires optimal buffer widths to minimize transaction costs",
+      "signal_type": "mean_reversion",
+      "rationale": "This expression calculates a mean-reversion signal by comparing short-term and long-term moving averages, then squares the z-score of the signal to amplify the effect.",
+      "llm_confidence": 0.9,
+      "anomaly_confidence": 0.8,
+      "valid": true,
+      "validation_reason": null
+    },
+    {
+      "expression": "group_rank(ts_rank(close - ts_mean(close, 63), 63), industry)",
+      "settings": {
+        "universe": "TOP3000",
+        "neutralization": "SUBINDUSTRY",
+        "decay": 20,
+        "truncation": 0.4,
+        "delay": 1,
+        "nan_handling": "ON"
+      },
+      "source": "llm-arxiv",
+      "paper_title": "Mean Reversion Pays, but Costs",
+      "paper_url": "http://arxiv.org/abs/1103.4934v1",
+      "anomaly": "Buying mean-reverting instruments when they are below their estimated mean level and selling when they are above can be profitable, but requires optimal buffer widths to minimize transaction costs",
+      "signal_type": "mean_reversion",
+      "rationale": "This expression identifies mean-reverting instruments by ranking the difference between the current price and the 63-day mean price within their industries, allowing for optimal buffer widths.",
+      "llm_confidence": 0.6,
+      "anomaly_confidence": 0.8,
+      "valid": true,
+      "validation_reason": null
+    }
+  ]
+}

@@ -10,3 +10,5 @@ __pycache__/
 !README.md
 alpha_intelligence.json
 
+Report_Output/
+.env

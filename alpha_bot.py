@@ -133,6 +133,8 @@ def log_simulation(expression, settings, result):
             "sharpe": result.get('sharpe', 0) if result else None,
             "fitness": result.get('fitness', 0) if result else None,
             "turnover": result.get('turnover', 0) if result else None,
+            "returns": result.get('returns', 0) if result else None,
+            "drawdown": result.get('drawdown', 0) if result else None,
         }
         json.dump(entry, f)
         f.write("\n")
