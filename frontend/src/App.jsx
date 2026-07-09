@@ -1,267 +1,203 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
-  PieChart, Pie, Cell
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid,
+  Tooltip as RechartsTip, ResponsiveContainer
 } from 'recharts';
-import { Activity, TrendingUp, ShieldCheck, DollarSign, BrainCircuit, ExternalLink, AlertTriangle, Play, ChevronDown, List, LayoutDashboard, Settings } from 'lucide-react';
 
-const COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b'];
-
-const getCorrelationColor = (val) => {
-  if (val === 1.0) return '#475569';
-  if (val > 0.15) return `rgba(239, 68, 68, ${Math.min(val * 3, 1)})`;
-  if (val < -0.1) return `rgba(16, 185, 129, ${Math.min(Math.abs(val) * 3, 1)})`;
-  return `rgba(59, 130, 246, ${Math.max(Math.abs(val) * 2, 0.1)})`;
-};
-
+// ────────────────────────────────────────────────────────────
+// CONFIG
+// ────────────────────────────────────────────────────────────
 const DOMAINS = [
-  { id: 'momentum', label: 'Statistical Arbitrage & Momentum', query: 'cat:q-fin.TR AND (momentum OR mean reversion)' },
-  { id: 'sentiment', label: 'Social Media Sentiment & News', query: 'all:(news sentiment stock returns OR social media equity prediction)' },
-  { id: 'value', label: 'Fundamentals & Value Investing', query: 'all:(value factor OR book-to-market ratio anomaly)' },
-  { id: 'volatility', label: 'Options & Volatility Skew', query: 'all:(implied volatility skew OR options-implied information)' },
+  { id: 'momentum', label: 'Cross-Sectional Momentum', query: 'cat:q-fin.TR AND (momentum OR ranking)' },
+  { id: 'arbitrage', label: 'Statistical Arbitrage & Pairs', query: 'all:(pairs trading OR statistical arbitrage cointegration)' },
+  { id: 'event', label: 'Event-Driven & AI Sentiment', query: 'all:(news sentiment AI OR event-driven anomaly)' },
+  { id: 'volatility', label: 'Options-Implied Volatility Skew', query: 'all:(implied volatility skew OR options-implied information)' },
+  { id: 'ml', label: 'Deep Learning & Non-linear', query: 'all:(neural networks stock prediction OR reinforcement learning trading)' },
 ];
 
-function App() {
-  const [activeTab, setActiveTab] = useState('dashboard');
+const API = 'http://localhost:5000';
+
+// ────────────────────────────────────────────────────────────
+// SVG ICONS  (avoid any broken lucide-react exports)
+// ────────────────────────────────────────────────────────────
+const GithubIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5a5.4 5.4 0 0 0-1-3.5 5.4 5.4 0 0 0 0-3.5s-1 0-3 1.5a13.4 13.4 0 0 0-7 0C6 2 5 2 5 2a5.4 5.4 0 0 0 0 3.5A5.4 5.4 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.4.5-.7 1-.85 1.65-.17.6-.22 1.23-.15 1.85v4" />
+    <path d="M9 18c-4.51 2-5-2-7-2" />
+  </svg>
+);
+const ChevronDown = ({ open }) => (
+  <svg className={`chevron ${open ? 'open' : ''}`} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="6 9 12 15 18 9" />
+  </svg>
+);
+const PlayIcon = () => (
+  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3" /></svg>
+);
+const BrainIcon = () => (
+  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96-.46 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2Z" />
+    <path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96-.46 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2Z" />
+  </svg>
+);
+
+// ────────────────────────────────────────────────────────────
+// HELPERS
+// ────────────────────────────────────────────────────────────
+const fmt2 = v => (v != null ? Number(v).toFixed(2) : '–');
+const fmtPct = v => (v != null ? (Number(v) * 100).toFixed(1) + '%' : '–');
+
+const sharpeClass = s => {
+  if (!s) return '';
+  if (s >= 1.5) return 'val-good';
+  if (s >= 0.8) return 'val-ok';
+  return 'val-bad';
+};
+
+function DomBar({ value, max = 10 }) {
+  const pct = Math.min(Math.round((value / max) * 100), 100);
+  const isGood = pct >= 50;
+  return (
+    <div className="dom-wrap">
+      <span className={`dom-pct ${isGood ? 'val-good' : ''}`}>{pct}%</span>
+      <div className="dom-bar-bg">
+        <div className={`dom-bar-fill ${isGood ? '' : 'dim'}`} style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function buildChartData(alpha) {
+  if (!alpha?.sharpe) return [];
+  let val = 10000;
+  const pts = [{ name: '2019 Q1', value: val }];
+  const seed = alpha.alpha_id ? alpha.alpha_id.charCodeAt(0) : 42;
+  const annRet = alpha.returns || alpha.sharpe * 0.05;
+  let t = 1;
+  for (const y of ['2019', '2020', '2021', '2022', '2023']) {
+    for (const q of ['Q1', 'Q2', 'Q3', 'Q4']) {
+      if (y === '2019' && q === 'Q1') continue;
+      const base = annRet / 4;
+      const noise = Math.sin(t * seed * 0.3) * (alpha.drawdown || 0.04);
+      const crash = (y === '2020' && q === 'Q1') ? -(alpha.drawdown || 0.12) : 0;
+      val *= (1 + base + noise + crash);
+      pts.push({ name: `${y} ${q}`, value: +val.toFixed(2) });
+      t++;
+    }
+  }
+  return pts;
+}
+
+// ────────────────────────────────────────────────────────────
+// APP
+// ────────────────────────────────────────────────────────────
+export default function App() {
+  const [tab, setTab] = useState('leaderboard');
   const [alphas, setAlphas] = useState([]);
   const [allAlphas, setAllAlphas] = useState([]);
-  const [correlation, setCorrelation] = useState(null);
-  const [stats, setStats] = useState({ total_alphas: 0, avg_sharpe: 0, avg_fitness: 0 });
-  const [budget, setBudget] = useState(10000000);
-  const [simulatedReturn, setSimulatedReturn] = useState(null);
+  const [stats, setStats] = useState({ total: 0, avgSharpe: 0, avgFitness: 0 });
   const [generating, setGenerating] = useState(false);
-  const [statusMsg, setStatusMsg] = useState("Pipeline Idle");
-  
-  const [selectedDomain, setSelectedDomain] = useState(DOMAINS[0]);
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  
-  const [expandedAlpha, setExpandedAlpha] = useState(null);
-  
-  const [showSummaryModal, setShowSummaryModal] = useState(false);
+  const [statusMsg, setStatusMsg] = useState('Pipeline Idle');
+  const [domain, setDomain] = useState(DOMAINS[0]);
+  const [dropOpen, setDropOpen] = useState(false);
+  const [expanded, setExpanded] = useState(null);
+  const [showModal, setShowModal] = useState(false);
   const [latestRun, setLatestRun] = useState(null);
 
+  // ── data loading ──────────────────────────────────────────
   const loadData = () => {
-    // Top 6 for dashboard
-    fetch('http://localhost:5000/api/alphas')
-      .then(res => res.json())
-      .then(data => {
-        setAlphas(data);
-      })
-      .catch(err => console.error("Failed to fetch alphas:", err));
+    fetch(`${API}/api/alphas`).then(r => r.json()).then(setAlphas).catch(console.error);
+    fetch(`${API}/api/all_alphas`).then(r => r.json()).then(data => {
+      setAllAlphas(data);
+      if (data.length) {
+        const total = data.length;
+        const avgSharpe = data.reduce((s, a) => s + (a.sharpe || 0), 0) / total;
+        const avgFitness = data.reduce((s, a) => s + (a.fitness || 0), 0) / total;
+        setStats({ total, avgSharpe, avgFitness });
+      }
+    }).catch(console.error);
+  };
 
-    // All alphas for library
-    fetch('http://localhost:5000/api/all_alphas')
-      .then(res => res.json())
-      .then(data => {
-        setAllAlphas(data);
-        if (data.length > 0) {
-          const total = data.length;
-          const avgS = data.reduce((sum, a) => sum + (a.sharpe || 0), 0) / total;
-          const avgF = data.reduce((sum, a) => sum + (a.fitness || 0), 0) / total;
-          setStats({ total_alphas: total, avg_sharpe: avgS, avg_fitness: avgF });
-        }
-      })
-      .catch(err => console.error("Failed to fetch all alphas:", err));
-
-    fetch('http://localhost:5000/api/correlation')
-      .then(res => res.json())
-      .then(data => setCorrelation(data))
-      .catch(err => console.error("Failed to fetch correlation:", err));
+  const checkStatus = () => {
+    fetch(`${API}/api/status`).then(r => r.json()).then(d => {
+      setStatusMsg(d.message || (d.is_running ? 'Running…' : 'Pipeline Idle'));
+      if (!d.is_running) {
+        setGenerating(prev => { if (prev) loadData(); return false; });
+      } else {
+        setGenerating(true);
+        if (d.message?.includes('BRAIN')) loadData();
+      }
+    }).catch(console.error);
   };
 
   useEffect(() => {
     loadData();
-    const interval = setInterval(checkStatus, 3000);
-    return () => clearInterval(interval);
+    const id = setInterval(checkStatus, 3000);
+    return () => clearInterval(id);
   }, []);
 
-  const checkStatus = () => {
-    fetch('http://localhost:5000/api/status')
-      .then(res => res.json())
-      .then(data => {
-        setStatusMsg(data.message || (data.is_running ? 'Running...' : 'Pipeline Idle'));
-        
-        if (!data.is_running) {
-          setGenerating((prev) => {
-            if (prev) {
-              loadData();
-              // If it just finished an ArXiv run, fetch the summary
-              if (data.message === 'Idle' || data.message.includes('ArXiv')) {
-                fetch('http://localhost:5000/api/latest_run')
-                  .then(r => r.json())
-                  .then(runData => {
-                    setLatestRun(runData);
-                    setShowSummaryModal(true);
-                  });
-              }
-            }
-            return false;
-          });
-        } else {
-            setGenerating(true);
-            // Polling: reload data periodically while running to see alphas update in real-time
-            if (data.message && data.message.includes('BRAIN')) {
-               loadData();
-            }
-        }
-      })
-      .catch(err => console.error("Status error:", err));
-  };
-
-  const handleSimulate = () => {
-    if (alphas.length === 0) return;
-    // Mock simulation logic based on average returns
-    const avgReturn = alphas.reduce((sum, a) => sum + (a.returns || 0), 0) / alphas.length;
-    // Add slight variance based on region/universe for visual effect
-    const modifier = simRegion === 'USA' ? 1.0 : 1.15; 
-    const finalReturn = avgReturn * modifier;
-    const finalValue = budget * (1 + finalReturn);
-    setSimulatedReturn({
-      profit: finalValue - budget,
-      pct: finalReturn * 100,
-      final: finalValue
-    });
-  };
-
+  // ── actions ───────────────────────────────────────────────
   const handleGenerate = () => {
     setGenerating(true);
-    setStatusMsg(`Searching ArXiv for ${selectedDomain.label}...`);
-    
-    fetch('http://localhost:5000/api/generate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ domain: selectedDomain.query })
-    }).catch(err => {
-      console.error(err);
-      setGenerating(false);
-    });
+    setStatusMsg(`Searching ArXiv…`);
+    fetch(`${API}/api/generate`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ domain: domain.query }) })
+      .catch(() => setGenerating(false));
   };
 
-  const handleSimulateBrain = () => {
+  const handleBrain = () => {
     setGenerating(true);
-    setStatusMsg(`Simulating on BRAIN (TOP3000)...`);
-    
-    fetch('http://localhost:5000/api/simulate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ universe: 'TOP3000' })
-    }).catch(err => {
-      console.error(err);
-      setGenerating(false);
-    });
+    setStatusMsg('Simulating on BRAIN…');
+    fetch(`${API}/api/simulate`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ universe: 'TOP3000' }) })
+      .catch(() => setGenerating(false));
   };
 
-  const generateAlphaChartData = (alpha) => {
-    if (!alpha.sharpe) return [];
-    
-    const years = ['2019', '2020', '2021', '2022', '2023'];
-    const quarters = ['Q1', 'Q2', 'Q3', 'Q4'];
-    
-    let currentVal = 10000;
-    const data = [{ name: '2019 Q1', value: currentVal }];
-    
-    // If returns are 0 or missing, estimate from Sharpe. (Sharpe < 0 means loss).
-    let annualReturn = alpha.returns;
-    if (!annualReturn) {
-      annualReturn = alpha.sharpe ? alpha.sharpe * 0.05 : 0;
-    }
-    
-    const maxDd = alpha.drawdown || Math.abs(annualReturn) || 0.05;
-    const seed = alpha.alpha_id ? alpha.alpha_id.charCodeAt(0) + alpha.alpha_id.charCodeAt(1) : 1;
-    
-    let time = 1;
-    for(let y of years) {
-      for(let q of quarters) {
-         if (y === '2019' && q === 'Q1') continue;
-         
-         // Fix for negative annual returns in Math.pow
-         let qReturn = 0;
-         if (annualReturn >= 0) {
-            qReturn = Math.pow(1 + annualReturn, 0.25) - 1;
-         } else {
-            qReturn = - (1 - Math.pow(1 + annualReturn, 0.25)); 
-            // Better approx for negative: just divide by 4
-            qReturn = annualReturn / 4;
-         }
-         
-         const noise = (Math.sin(time * seed * 1.5) * maxDd * 0.5);
-         
-         let actualReturn = qReturn + noise;
-         if (y === '2020' && q === 'Q1') actualReturn = -maxDd;
-         
-         currentVal = currentVal * (1 + actualReturn);
-         data.push({ name: `${y} ${q}`, value: currentVal });
-         time++;
-      }
-    }
-    return data;
+  const handleLastRun = () => {
+    fetch(`${API}/api/latest_run`).then(r => r.json()).then(d => { setLatestRun(d); setShowModal(true); });
   };
 
-  const sourceCount = alphas.reduce((acc, alpha) => {
-    acc[alpha.source] = (acc[alpha.source] || 0) + 1;
-    return acc;
-  }, {});
-  
-  const pieData = Object.keys(sourceCount).map(key => ({
-    name: key,
-    value: sourceCount[key]
-  }));
-
-  const chartData = [
-    { name: 'Jan', value: budget },
-    { name: 'Mar', value: budget * 1.05 },
-    { name: 'Jun', value: budget * 1.08 },
-    { name: 'Sep', value: budget * 1.15 },
-    { name: 'Dec', value: simulatedReturn ? simulatedReturn.final : budget * 1.25 },
-  ];
-
+  // ── render ────────────────────────────────────────────────
   return (
-    <div className="dashboard-container">
-      <header className="header" style={{ borderBottom: '1px solid var(--border-light)', paddingBottom: '1rem', marginBottom: '2rem' }}>
-        <div>
-          <h1>Gen-Alpha Factory</h1>
-          <p style={{ color: 'var(--text-muted)', marginTop: '0.5rem' }}>Autonomous Quantitative Research System v3</p>
-        </div>
-        
-        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-          
-          <div style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', padding: '0.25rem', marginRight: '1rem' }}>
-            <button 
-              className={`btn ${activeTab === 'dashboard' ? '' : 'btn-outline'}`}
-              style={{ background: activeTab === 'dashboard' ? 'var(--accent-primary)' : 'transparent', border: 'none', padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-              onClick={() => setActiveTab('dashboard')}
-            >
-              <LayoutDashboard size={16} /> Dashboard
-            </button>
-            <button 
-              className={`btn ${activeTab === 'library' ? '' : 'btn-outline'}`}
-              style={{ background: activeTab === 'library' ? 'var(--accent-primary)' : 'transparent', border: 'none', padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-              onClick={() => setActiveTab('library')}
-            >
-              <List size={16} /> Alpha Library ({allAlphas.length})
-            </button>
-          </div>
+    <div className="app">
 
-          <div style={{ position: 'relative' }}>
-            <button 
-              className="btn" 
-              style={{ width: '250px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', justifyContent: 'space-between' }}
-              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-              disabled={generating}
-            >
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {selectedDomain.label}
-              </span>
-              <ChevronDown size={16} style={{ flexShrink: 0 }} />
+      {/* ── NAV ─────────────────────────────────────────── */}
+      <nav className="nav">
+        <div className="nav-logo">
+          <span className="tilde">≈</span> Gen-Alpha
+        </div>
+        <div className="nav-links">
+          <button className={`lb-tab ${tab === 'leaderboard' ? 'active' : ''}`} onClick={() => setTab('leaderboard')}>Leaderboard</button>
+          <button className={`lb-tab ${tab === 'library' ? 'active' : ''}`} onClick={() => setTab('library')}>Library ({allAlphas.length})</button>
+          <span className={`status-pill ${generating ? 'running' : ''}`}>
+            <span className={`status-dot ${generating ? 'running' : ''}`} />
+            {statusMsg}
+          </span>
+          <button className="btn" onClick={handleLastRun}>Last Run</button>
+          <a href="https://github.com/AdithyaP-72/Gen-Alpha" target="_blank" rel="noreferrer" style={{ color: 'var(--muted-mid)', display: 'flex', alignItems: 'center' }}><GithubIcon /></a>
+        </div>
+      </nav>
+
+      {/* ── HERO ─────────────────────────────────────────── */}
+      <div className="hero">
+        <h1 className="hero-title">Gen-Alpha</h1>
+        <p className="hero-sub">
+          Benchmarking autonomous quantitative intelligence<br />
+          at the edge of machine ability.
+        </p>
+        <p className="hero-by">By <strong>≈ PROXIMAL</strong></p>
+
+        <div className="hero-actions">
+          <button className="btn btn-solid" onClick={handleGenerate} disabled={generating}>
+            <PlayIcon /> {generating ? 'Running…' : 'Trigger Pipeline'}
+          </button>
+
+          <div className="dropdown-wrap">
+            <button className="btn" onClick={() => setDropOpen(o => !o)} disabled={generating}>
+              {domain.label} <ChevronDown open={dropOpen} />
             </button>
-            {isDropdownOpen && !generating && (
-              <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: '0.5rem', background: 'var(--bg-panel)', border: '1px solid var(--border-light)', borderRadius: '8px', zIndex: 10, backdropFilter: 'blur(12px)' }}>
+            {dropOpen && !generating && (
+              <div className="dropdown-menu">
                 {DOMAINS.map(d => (
-                  <div 
-                    key={d.id}
-                    style={{ padding: '0.75rem', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.05)' }}
-                    onClick={() => { setSelectedDomain(d); setIsDropdownOpen(false); }}
-                  >
+                  <div key={d.id} className="dropdown-item" onClick={() => { setDomain(d); setDropOpen(false); }}>
                     {d.label}
                   </div>
                 ))}
@@ -269,365 +205,225 @@ function App() {
             )}
           </div>
 
-          <button 
-            className="btn" 
-            style={{ width: 'auto', padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)' }}
-            onClick={handleGenerate}
-            disabled={generating}
-          >
-            {generating && statusMsg.includes('ArXiv') ? <Activity size={16} className="animate-spin" /> : <Play size={16} />}
-            Trigger Pipeline
-          </button>
-          
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginLeft: '1rem', borderLeft: '1px solid rgba(255,255,255,0.1)', paddingLeft: '1rem' }}>
-            <button 
-              className="btn text-success" 
-              style={{ width: 'auto', padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.3)' }}
-              onClick={handleSimulateBrain}
-              disabled={generating}
-            >
-              {generating && statusMsg.includes('BRAIN') ? <Activity size={16} className="animate-spin" /> : <Activity size={16} />}
-              Simulate on BRAIN
-            </button>
-          </div>
-
-          <span className="badge badge-llm" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', marginLeft: '1rem' }}>
-            <BrainCircuit size={16} /> {statusMsg}
-          </span>
-          
-          <button 
-            className="btn btn-outline" 
-            style={{ width: 'auto', padding: '0.5rem 1rem', marginLeft: 'auto', fontSize: '0.875rem' }}
-            onClick={() => {
-              fetch('http://localhost:5000/api/latest_run').then(r=>r.json()).then(d=>{setLatestRun(d); setShowSummaryModal(true);})
-            }}
-          >
-            View Last Run
+          <button className="btn btn-green" onClick={handleBrain} disabled={generating}>
+            <BrainIcon /> Simulate on BRAIN
           </button>
         </div>
-      </header>
+      </div>
 
-      {activeTab === 'dashboard' ? (
-        <>
-          <div className="stats-grid">
-            <div className="glass-panel stat-card">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span className="stat-title">Total Discovered Alphas</span>
-                <ShieldCheck size={20} color="var(--accent-primary)" />
-              </div>
-              <span className="stat-value">{stats.total_alphas}</span>
-              <span style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>From {DOMAINS.length} tracked domains</span>
-            </div>
-            
-            <div className="glass-panel stat-card">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span className="stat-title">Portfolio Avg Sharpe</span>
-                <TrendingUp size={20} color="var(--accent-success)" />
-              </div>
-              <span className="stat-value text-success">{stats.avg_sharpe.toFixed(2)}</span>
-              <span style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>Equal-weighted</span>
-            </div>
-            
-            <div className="glass-panel stat-card">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span className="stat-title">Avg Fitness Score</span>
-                <Activity size={20} color="var(--accent-secondary)" />
-              </div>
-              <span className="stat-value">{stats.avg_fitness.toFixed(2)}</span>
-              <span style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>BRAIN robustness metric</span>
-            </div>
+      {/* ── MAIN ─────────────────────────────────────────── */}
+      <main className="main">
+
+        {/* Stats strip */}
+        <div className="stats-strip">
+          <div className="stat-cell">
+            <span className="stat-cell-label">Total Alphas</span>
+            <span className="stat-cell-value">{stats.total}</span>
+            <span className="stat-cell-sub">{DOMAINS.length} research domains</span>
           </div>
-
-          <div className="main-grid">
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-              
-              <div className="glass-panel table-container">
-                <h2 style={{ marginBottom: '1.5rem', fontSize: '1.25rem' }}>Top 6 Selected Signals</h2>
-                <table>
-                  <thead>
-                    <tr>
-                      <th>ID</th>
-                      <th>Expression & Source</th>
-                      <th>Sharpe</th>
-                      <th>Fitness</th>
-                      <th>Turnover</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {alphas.map((alpha, i) => (
-                      <tr key={i}>
-                        <td><code style={{ color: 'var(--accent-secondary)' }}>{alpha.alpha_id}</code></td>
-                        <td title={alpha.expression}>
-                          <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '300px' }}>
-                            {alpha.expression}
-                          </div>
-                          {alpha.source === 'arxiv' ? (
-                            <div className="arxiv-tag">
-                              ArXiv: {alpha.paper_title || 'Unknown Paper'}
-                            </div>
-                          ) : (
-                            <div className="arxiv-tag" style={{ color: 'var(--text-muted)', background: 'transparent' }}>
-                              Template Mutation
-                            </div>
-                          )}
-                        </td>
-                        <td className={alpha.sharpe > 1.5 ? 'text-success' : ''}>{alpha.sharpe.toFixed(2)}</td>
-                        <td>{alpha.fitness.toFixed(2)}</td>
-                        <td>{(alpha.turnover * 100).toFixed(1)}%</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="glass-panel">
-                <h2 style={{ marginBottom: '1rem', fontSize: '1.25rem' }}>Correlation Heatmap</h2>
-                <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
-                  Ensuring low correlation across signals is critical for portfolio-level optimization.
-                </p>
-                {correlation && correlation.labels && correlation.matrix && (
-                  <div style={{ overflowX: 'auto', paddingBottom: '1rem' }}>
-                    <div style={{ 
-                      display: 'grid', 
-                      gridTemplateColumns: `auto repeat(${correlation.labels.length || 1}, 1fr)`,
-                      gap: '2px',
-                      minWidth: '600px'
-                    }}>
-                      <div></div>
-                      {correlation.labels.map(lbl => (
-                        <div key={lbl} className="heatmap-label-top">{lbl}</div>
-                      ))}
-                      
-                      {correlation.matrix.map((row, i) => (
-                        <React.Fragment key={correlation.labels[i] || i}>
-                          <div className="heatmap-label">{correlation.labels[i]}</div>
-                          {row.map((val, j) => (
-                            <div 
-                              key={`${i}-${j}`} 
-                              className="heatmap-cell"
-                              style={{ backgroundColor: getCorrelationColor(val) }}
-                              title={`Correlation: ${val}`}
-                            >
-                              {Number(val).toFixed(2)}
-                            </div>
-                          ))}
-                        </React.Fragment>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-              <div className="glass-panel">
-                <h2 style={{ marginBottom: '1rem', fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <DollarSign size={20} /> Portfolio Simulator
-                </h2>
-
-                <div className="input-group">
-                  <label>Initial Capital (USD)</label>
-                  <input 
-                    type="number" 
-                    value={budget} 
-                    onChange={(e) => setBudget(Number(e.target.value))} 
-                    step="100000"
-                  />
-                </div>
-                <button className="btn" onClick={handleSimulate}>Run Portfolio Simulation</button>
-                
-                {simulatedReturn && (
-                  <div style={{ marginTop: '2rem', padding: '1rem', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', border: '1px solid var(--border-light)' }}>
-                    <h3 style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginBottom: '0.5rem' }}>Projected 1-Year Value</h3>
-                    <div style={{ fontSize: '2rem', fontWeight: 'bold', marginBottom: '1rem' }}>
-                      ${simulatedReturn.final.toLocaleString(undefined, {maximumFractionDigits: 2})}
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: 'var(--text-muted)' }}>Est. Profit</span>
-                      <span className="text-success">+${simulatedReturn.profit.toLocaleString(undefined, {maximumFractionDigits: 2})}</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.5rem' }}>
-                      <span style={{ color: 'var(--text-muted)' }}>Annual Return</span>
-                      <span className="text-success">+{simulatedReturn.pct.toFixed(2)}%</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.5rem' }}>
-                      <span style={{ color: 'var(--text-muted)' }}>Max Drawdown</span>
-                      <span className="text-danger">-{alphas.length > 0 ? (Math.max(...alphas.map(a => a.drawdown || 0)) * 100).toFixed(1) : '0'}%</span>
-                    </div>
-                  </div>
-                )}
-
-                <div className="chart-container" style={{ height: '250px', marginTop: '2rem' }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={chartData} margin={{ top: 5, right: 10, bottom: 5, left: 10 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
-                      <XAxis dataKey="name" stroke="var(--text-muted)" fontSize={12} />
-                      <YAxis stroke="var(--text-muted)" fontSize={12} tickFormatter={(value) => `${value >= 1000000 ? (value/1000000).toFixed(1) + 'M' : value}`} width={40} />
-                      <RechartsTooltip 
-                        contentStyle={{ backgroundColor: 'var(--bg-dark)', border: '1px solid var(--border-light)' }}
-                        formatter={(value) => [value.toLocaleString(), 'Portfolio Value']}
-                      />
-                      <Line type="monotone" dataKey="value" stroke="var(--accent-primary)" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 8 }} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-            </div>
+          <div className="stat-cell">
+            <span className="stat-cell-label">Avg Sharpe</span>
+            <span className="stat-cell-value" style={{ color: stats.avgSharpe >= 1 ? 'var(--green)' : 'inherit' }}>
+              {fmt2(stats.avgSharpe)}
+            </span>
+            <span className="stat-cell-sub">Equal-weighted portfolio</span>
           </div>
-        </>
-      ) : (
-        <div className="glass-panel" style={{ minHeight: '600px' }}>
-          <h2 style={{ marginBottom: '1.5rem', fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <List size={24} /> Full Alpha Library
-          </h2>
-          <p style={{ color: 'var(--text-muted)', marginBottom: '2rem' }}>
-            This page tracks all LLM-mined and Template-mutated alphas discovered by the system. Click on any alpha to view its detailed simulation settings.
-          </p>
-          
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            {allAlphas.map((alpha, i) => (
-              <div key={i} style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '8px', overflow: 'hidden' }}>
-                <div 
-                  style={{ padding: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', background: expandedAlpha === i ? 'rgba(255,255,255,0.02)' : 'transparent' }}
-                  onClick={() => setExpandedAlpha(expandedAlpha === i ? null : i)}
-                >
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                      <code style={{ color: 'var(--accent-secondary)', fontSize: '1.1rem' }}>{alpha.alpha_id}</code>
-                      {alpha.source === 'arxiv' ? (
-                        <div className="arxiv-tag">ArXiv: {alpha.paper_title}</div>
-                      ) : (
-                        <div className="arxiv-tag" style={{ color: 'var(--text-muted)', background: 'transparent' }}>Template</div>
-                      )}
+          <div className="stat-cell">
+            <span className="stat-cell-label">Avg Fitness</span>
+            <span className="stat-cell-value">{fmt2(stats.avgFitness)}</span>
+            <span className="stat-cell-sub">BRAIN robustness score</span>
+          </div>
+        </div>
+
+        {/* ── TAB: LEADERBOARD ─────────────────────────── */}
+        {tab === 'leaderboard' && (
+          <>
+            <div className="lb-header">
+              <span className="lb-label">Leaderboard</span>
+              <div className="lb-tabs">
+                <button className="lb-tab active">MEAN@5</button>
+                <button className="lb-tab">BEST@5</button>
+              </div>
+            </div>
+
+            <table className="alpha-table">
+              <thead>
+                <tr>
+                  <th className="rank-num">#</th>
+                  <th>Alpha ID</th>
+                  <th>Source</th>
+                  <th>Avg Rank ↑</th>
+                  <th>Dominance</th>
+                  <th>Sharpe</th>
+                  <th>Fitness</th>
+                  <th>Turnover</th>
+                </tr>
+              </thead>
+              <tbody>
+                {alphas.length === 0 && (
+                  <tr className="empty-row">
+                    <td colSpan="8">No alphas yet — trigger the pipeline above.</td>
+                  </tr>
+                )}
+                {alphas.map((a, i) => (
+                  <tr key={i}>
+                    <td className="rank-num">{i + 1}</td>
+                    <td>
+                      <span className="alpha-id">{a.alpha_id}</span>
+                    </td>
+                    <td>
+                      <span className={`source-tag ${a.source === 'arxiv' ? 'arxiv' : ''}`}>
+                        {a.source === 'arxiv' ? (a.paper_title?.slice(0, 28) + '…' || 'ArXiv') : 'Template Mutation'}
+                      </span>
+                    </td>
+                    <td className={sharpeClass(a.sharpe)} style={{ fontWeight: 700 }}>
+                      {fmt2(a.sharpe)}
+                    </td>
+                    <td>
+                      <DomBar value={a.fitness || 0} max={10} />
+                    </td>
+                    <td className={sharpeClass(a.sharpe)}>{fmt2(a.sharpe)}</td>
+                    <td style={{ color: 'var(--muted-mid)' }}>{fmt2(a.fitness)}</td>
+                    <td style={{ color: 'var(--muted-mid)' }}>{fmtPct(a.turnover)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
+        )}
+
+        {/* ── TAB: LIBRARY ─────────────────────────────── */}
+        {tab === 'library' && (
+          <>
+            <div className="lb-header">
+              <span className="lb-label">Full Alpha Library</span>
+              <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>Click any row to expand</span>
+            </div>
+
+            {allAlphas.length === 0 && (
+              <p style={{ color: 'var(--muted)', padding: '2rem 0', fontSize: '0.85rem' }}>
+                No alphas in library yet. Run the pipeline to start discovering signals.
+              </p>
+            )}
+
+            {allAlphas.map((a, i) => (
+              <div key={a.alpha_id || i} className="alpha-card">
+                <div className="alpha-card-header" onClick={() => setExpanded(expanded === i ? null : i)}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.3rem' }}>
+                      <span className="alpha-id">{a.alpha_id}</span>
+                      <span className={`source-tag ${a.source === 'arxiv' ? 'arxiv' : ''}`}>
+                        {a.source === 'arxiv' ? 'ArXiv' : 'Template'}
+                      </span>
                     </div>
-                    <div style={{ fontFamily: 'monospace', color: 'var(--text-primary)', wordBreak: 'break-all' }}>
-                      {alpha.expression}
-                    </div>
+                    <div className="alpha-card-expr">{a.expression}</div>
                   </div>
-                  
-                  <div style={{ display: 'flex', gap: '2rem', textAlign: 'right' }}>
+                  <div className="alpha-card-metrics">
                     <div>
-                      <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase' }}>Sharpe</div>
-                      <div className={alpha.sharpe && alpha.sharpe > 1.5 ? 'text-success' : ''} style={{ fontWeight: 'bold' }}>
-                        {alpha.sharpe ? alpha.sharpe.toFixed(2) : '-'}
-                      </div>
+                      <div className="alpha-card-metric-label">Sharpe</div>
+                      <div className={sharpeClass(a.sharpe)}>{fmt2(a.sharpe)}</div>
                     </div>
                     <div>
-                      <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase' }}>Fitness</div>
-                      <div style={{ fontWeight: 'bold' }}>{alpha.fitness ? alpha.fitness.toFixed(2) : '-'}</div>
+                      <div className="alpha-card-metric-label">Fitness</div>
+                      <div style={{ fontWeight: 600 }}>{fmt2(a.fitness)}</div>
                     </div>
-                    <ChevronDown size={20} style={{ transform: expandedAlpha === i ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s', marginTop: '0.5rem', color: 'var(--text-muted)' }} />
+                    <div>
+                      <div className="alpha-card-metric-label">Turnover</div>
+                      <div style={{ fontWeight: 600, color: 'var(--muted-mid)' }}>{fmtPct(a.turnover)}</div>
+                    </div>
+                    <ChevronDown open={expanded === i} />
                   </div>
                 </div>
-                
-                {expandedAlpha === i && (
-                  <div style={{ padding: '1.5rem', borderTop: '1px solid rgba(255,255,255,0.05)', background: 'rgba(0,0,0,0.4)' }}>
-                    {alpha.anomaly && (
-                      <div style={{ marginBottom: '1.5rem', padding: '1rem', background: 'rgba(16, 185, 129, 0.05)', borderLeft: '3px solid var(--accent-success)', borderRadius: '4px' }}>
-                        <h4 style={{ color: 'var(--accent-success)', marginBottom: '0.5rem', fontSize: '0.875rem', textTransform: 'uppercase' }}>Extracted Anomaly</h4>
-                        <p style={{ color: 'var(--text-primary)', lineHeight: '1.5' }}>{alpha.anomaly}</p>
-                        {alpha.rationale && <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginTop: '0.5rem' }}>Rationale: {alpha.rationale}</p>}
+
+                {expanded === i && (
+                  <div className="alpha-card-detail">
+                    {a.anomaly && (
+                      <div className="anomaly-block">
+                        <h4>Extracted Anomaly</h4>
+                        <p>{a.anomaly}</p>
+                        {a.rationale && <p style={{ marginTop: '0.4rem', opacity: 0.7 }}>Rationale: {a.rationale}</p>}
                       </div>
                     )}
-                    <h4 style={{ color: 'var(--accent-primary)', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <Settings size={16} /> Simulation Settings
-                    </h4>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1rem' }}>
-                      <div>
-                        <div style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Universe</div>
-                        <div style={{ fontWeight: '500' }}>{alpha.settings?.universe || 'TOP3000'}</div>
-                      </div>
-                      <div>
-                        <div style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Neutralization</div>
-                        <div style={{ fontWeight: '500' }}>{alpha.settings?.neutralization || 'SUBINDUSTRY'}</div>
-                      </div>
-                      <div>
-                        <div style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Decay</div>
-                        <div style={{ fontWeight: '500' }}>{alpha.settings?.decay || 0}</div>
-                      </div>
-                      <div>
-                        <div style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Delay</div>
-                        <div style={{ fontWeight: '500' }}>{alpha.settings?.delay || 1}</div>
-                      </div>
-                      <div>
-                        <div style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Truncation</div>
-                        <div style={{ fontWeight: '500' }}>{alpha.settings?.truncation || 0.08}</div>
-                      </div>
-                      <div>
-                        <div style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Pasteurization</div>
-                        <div style={{ fontWeight: '500' }}>{alpha.settings?.pasteurization || 'ON'}</div>
-                      </div>
-                    </div>
-                    
-                    {alpha.sharpe && (
-                      <div style={{ marginTop: '2rem' }}>
-                        <h4 style={{ color: 'var(--accent-primary)', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                          <TrendingUp size={16} /> Projected Growth (2019-2023)
-                        </h4>
-                        <div style={{ height: '200px' }}>
-                          <ResponsiveContainer width="100%" height="100%">
-                            <LineChart data={generateAlphaChartData(alpha)} margin={{ top: 5, right: 10, bottom: 5, left: 10 }}>
-                              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                              <XAxis dataKey="name" stroke="var(--text-muted)" fontSize={10} tick={{fill: 'var(--text-muted)'}} />
-                              <YAxis stroke="var(--text-muted)" fontSize={10} tickFormatter={(value) => `$${(value/1000).toFixed(0)}k`} width={40} />
-                              <RechartsTooltip 
-                                contentStyle={{ backgroundColor: 'var(--bg-dark)', border: '1px solid var(--border-light)' }}
-                                formatter={(value) => [`$${value.toFixed(2)}`, 'Growth']}
-                              />
-                              <Line type="monotone" dataKey="value" stroke="var(--accent-success)" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
-                            </LineChart>
-                          </ResponsiveContainer>
+
+                    <p style={{ fontSize: '0.7rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: '0.75rem' }}>Simulation Settings</p>
+                    <div className="settings-grid" style={{ marginBottom: '1.5rem' }}>
+                      {[
+                        ['Universe', a.settings?.universe || 'TOP3000'],
+                        ['Neutralization', a.settings?.neutralization || 'SUBINDUSTRY'],
+                        ['Decay', a.settings?.decay ?? 0],
+                        ['Delay', a.settings?.delay ?? 1],
+                        ['Truncation', a.settings?.truncation ?? 0.08],
+                        ['Pasteurization', a.settings?.pasteurization || 'ON'],
+                      ].map(([lbl, val]) => (
+                        <div key={lbl}>
+                          <div className="setting-item-label">{lbl}</div>
+                          <div className="setting-item-value">{String(val)}</div>
                         </div>
-                      </div>
-                    )}
+                      ))}
+                    </div>
+
+                    {a.sharpe && (() => {
+                      const data = buildChartData(a);
+                      return (
+                        <>
+                          <p style={{ fontSize: '0.7rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: '0.75rem' }}>Projected Growth (2019–2023)</p>
+                          <div style={{ height: 200 }}>
+                            <ResponsiveContainer width="100%" height="100%">
+                              <LineChart data={data} margin={{ top: 4, right: 8, bottom: 4, left: 8 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                                <XAxis dataKey="name" stroke="var(--muted)" fontSize={9} tick={{ fill: 'var(--muted)' }} />
+                                <YAxis stroke="var(--muted)" fontSize={9} tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} width={38} />
+                                <RechartsTip
+                                  contentStyle={{ background: '#0c0c0c', border: '1px solid var(--border)', fontSize: 11 }}
+                                  formatter={v => [`$${Number(v).toFixed(0)}`, 'Value']}
+                                />
+                                <Line type="monotone" dataKey="value" stroke="var(--green)" strokeWidth={2} dot={false} activeDot={{ r: 3 }} />
+                              </LineChart>
+                            </ResponsiveContainer>
+                          </div>
+                        </>
+                      );
+                    })()}
                   </div>
                 )}
               </div>
             ))}
-          </div>
-        </div>
-      )}
-      
-      {showSummaryModal && latestRun && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
-          <div className="glass-panel" style={{ width: '90%', maxWidth: '800px', maxHeight: '90vh', overflowY: 'auto' }}>
+          </>
+        )}
+      </main>
+
+      {/* ── LAST RUN MODAL ───────────────────────────────── */}
+      {showModal && latestRun && (
+        <div className="modal-backdrop" onClick={() => setShowModal(false)}>
+          <div className="modal-box" onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-              <h2 style={{ fontSize: '1.5rem', color: 'var(--accent-primary)' }}>Last Pipeline Run Summary</h2>
-              <button className="btn btn-outline" onClick={() => setShowSummaryModal(false)}>Close</button>
+              <h2 className="modal-title" style={{ margin: 0 }}>Last Pipeline Run</h2>
+              <button className="btn" onClick={() => setShowModal(false)}>Close</button>
             </div>
-            
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '2rem' }}>
-              <div style={{ padding: '1rem', background: 'rgba(255,255,255,0.05)', borderRadius: '8px' }}>
-                <div style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Papers Processed</div>
-                <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{latestRun.papers_processed}</div>
+            <div className="modal-stat-grid">
+              <div className="modal-stat-cell">
+                <div style={{ fontSize: '0.7rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.3rem' }}>Papers Processed</div>
+                <div style={{ fontSize: '1.6rem', fontWeight: 700 }}>{latestRun.papers_processed ?? '–'}</div>
               </div>
-              <div style={{ padding: '1rem', background: 'rgba(255,255,255,0.05)', borderRadius: '8px' }}>
-                <div style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Expressions Generated</div>
-                <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--accent-success)' }}>{latestRun.total_expressions}</div>
+              <div className="modal-stat-cell">
+                <div style={{ fontSize: '0.7rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.3rem' }}>Expressions Generated</div>
+                <div style={{ fontSize: '1.6rem', fontWeight: 700, color: 'var(--green)' }}>{latestRun.total_expressions ?? '–'}</div>
               </div>
             </div>
-            
-            <h3 style={{ marginBottom: '1rem', fontSize: '1.1rem' }}>Extracted Ideas</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              {latestRun.papers && latestRun.papers.map((paper, i) => (
-                <div key={i} style={{ padding: '1rem', border: '1px solid var(--border-light)', borderRadius: '8px', background: 'rgba(0,0,0,0.2)' }}>
-                  <h4 style={{ color: 'var(--accent-secondary)', marginBottom: '0.75rem' }}>{paper.title}</h4>
-                  <ul style={{ paddingLeft: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                    {paper.anomalies.map((anomaly, j) => (
-                      <li key={j} style={{ color: 'var(--text-primary)', lineHeight: '1.5' }}>{anomaly}</li>
-                    ))}
-                  </ul>
+
+            <p style={{ fontSize: '0.7rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: '0.75rem' }}>Extracted Ideas</p>
+            {latestRun.papers?.length > 0
+              ? latestRun.papers.map((p, i) => (
+                <div key={i} className="paper-card">
+                  <p className="paper-title">{p.title}</p>
+                  <ul>{p.anomalies.map((a, j) => <li key={j}>{a}</li>)}</ul>
                 </div>
-              ))}
-              {(!latestRun.papers || latestRun.papers.length === 0) && (
-                <p style={{ color: 'var(--text-muted)' }}>No ideas extracted in the last run.</p>
-              )}
-            </div>
+              ))
+              : <p style={{ color: 'var(--muted)', fontSize: '0.82rem' }}>No ideas extracted in the last run.</p>
+            }
           </div>
         </div>
       )}
     </div>
   );
 }
-
-export default App;
