@@ -38,9 +38,21 @@ body {
   color: var(--text);
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
-  /* dot grid identical to FrontierSWE */
-  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.07) 1px, transparent 1px);
-  background-size: 36px 36px;
+  overflow-x: hidden;
+}
+
+/* ─── Ferrofluid Background ──────────────────────────────── */
+.ferrofluid-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.ferrofluid-bg .ferrofluid-container {
+  width: 100% !important;
+  height: 100% !important;
 }
 
 /* ─── Scrollbar ──────────────────────────────────────────── */

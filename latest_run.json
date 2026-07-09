@@ -1,0 +1,533 @@
+{
+  "generated_at": "2026-07-09 23:42:26",
+  "papers_processed": 6,
+  "total_expressions": 25,
+  "valid_expressions": 25,
+  "alphas": [
+    {
+      "expression": "group_rank(ts_rank(ts_mean(returns, 126), 63), subindustry)",
+      "settings": {
+        "universe": "TOP3000",
+        "neutralization": "INDUSTRY",
+        "decay": 20,
+        "truncation": 0.05,
+        "delay": 1,
+        "nan_handling": "ON"
+      },
+      "source": "llm-arxiv",
+      "paper_title": "Trading with the Momentum Transformer: An Intelligent and Interpretable Architecture",
+      "paper_url": "http://arxiv.org/abs/2112.08534v3",
+      "anomaly": "Stocks with high past returns will continue to outperform those with low past returns",
+      "signal_type": "momentum",
+      "rationale": "This expression captures the momentum effect by ranking stocks based on their past returns and then grouping them by industry to reduce sector-specific biases",
+      "llm_confidence": 0.8,
+      "anomaly_confidence": 0.8,
+      "valid": true,
+      "validation_reason": null
+    },
+    {
+      "expression": "rank(ts_sum(returns, 63))",
+      "settings": {
+        "universe": "TOP3000",
+        "neutralization": "SECTOR",
+        "decay": 20,
+        "truncation": 0.1,
+        "delay": 1,
+        "nan_handling": "ON"
+      },
+      "source": "llm-arxiv",
+      "paper_title": "Trading with the Momentum Transformer: An Intelligent and Interpretable Architecture",
+      "paper_url": "http://arxiv.org/abs/2112.08534v3",
+      "anomaly": "Stocks with high past returns will continue to outperform those with low past returns",
+      "signal_type": "momentum",
+      "rationale": "This expression calculates the cumulative returns over the past 63 days and ranks stocks based on this metric, capturing the momentum effect",
+      "llm_confidence": 0.7,
+      "anomaly_confidence": 0.8,
+      "valid": true,
+      "validation_reason": null
+    },
+    {
+      "expression": "group_zscore(ts_mean(returns, 90), subindustry)",
+      "settings": {
+        "universe": "TOP3000",
+        "neutralization": "INDUSTRY",
+        "decay": 20,
+        "truncation": 0.03,
+        "delay": 1,
+        "nan_handling": "ON"
+      },
+      "source": "llm-arxiv",
+      "paper_title": "Trading with the Momentum Transformer: An Intelligent and Interpretable Architecture",
+      "paper_url": "http://arxiv.org/abs/2112.08534v3",
+      "anomaly": "Stocks with high past returns will continue to outperform those with low past returns",
+      "signal_type": "momentum",
+      "rationale": "This expression calculates the z-score of the average returns over the past 90 days, grouped by subindustry, to identify stocks with anomalously high or low returns",
+      "llm_confidence": 0.9,
+      "anomaly_confidence": 0.8,
+      "valid": true,
+      "validation_reason": null
+    },
+    {
+      "expression": "ts_rank(ts_delta(returns, 21), 63)",
+      "settings": {
+        "universe": "TOP3000",
+        "neutralization": "SECTOR",
+        "decay": 20,
+        "truncation": 0.05,
+        "delay": 1,
+        "nan_handling": "ON"
+      },
+      "source": "llm-arxiv",
+      "paper_title": "Trading with the Momentum Transformer: An Intelligent and Interpretable Architecture",
+      "paper_url": "http://arxiv.org/abs/2112.08534v3",
+      "anomaly": "Stocks with high past returns will continue to outperform those with low past returns",
+      "signal_type": "momentum",
+      "rationale": "This expression captures the change in returns over the past 21 days and ranks stocks based on this metric over a 63-day window, identifying momentum shifts",
+      "llm_confidence": 0.6,
+      "anomaly_confidence": 0.8,
+      "valid": true,
+      "validation_reason": null
+    },
+    {
+      "expression": "trade_when(ts_arg_max(returns, 63) == 0, rank(ts_delta(returns, 21)), -1)",
+      "settings": {
+        "universe": "TOP3000",
+        "neutralization": "INDUSTRY",
+        "decay": 20,
+        "truncation": 0.1,
+        "delay": 1,
+        "nan_handling": "ON"
+      },
+      "source": "llm-arxiv",
+      "paper_title": "Trading with the Momentum Transformer: An Intelligent and Interpretable Architecture",
+      "paper_url": "http://arxiv.org/abs/2112.08534v3",
+      "anomaly": "Stocks with high past returns will continue to outperform those with low past returns",
+      "signal_type": "momentum",
+      "rationale": "This expression trades on the momentum effect when the maximum returns over the past 63 days occur today, and otherwise takes a contrarian stance",
+      "llm_confidence": 0.5,
+      "anomaly_confidence": 0.8,
+      "valid": true,
+      "validation_reason": null
+    },
+    {
+      "expression": "group_rank(ts_rank(ts_delta(close, 21), 63), subindustry)",
+      "settings": {
+        "universe": "TOP3000",
+        "neutralization": "INDUSTRY",
+        "decay": 20,
+        "truncation": 0.05,
+        "delay": 1,
+        "nan_handling": "ON"
+      },
+      "source": "llm-arxiv",
+      "paper_title": "Spatio-Temporal Momentum: Jointly Learning Time-Series and Cross-Sectional Strategies",
+      "paper_url": "http://arxiv.org/abs/2302.10175v1",
+      "anomaly": "Stocks with high cross-sectional momentum features over time will outperform those with low cross-sectional momentum features",
+      "signal_type": "momentum",
+      "rationale": "This expression captures the cross-sectional momentum of stocks within each subindustry by ranking the time-series momentum of each stock's price over the past 21 days.",
+      "llm_confidence": 0.8,
+      "anomaly_confidence": 0.8,
+      "valid": true,
+      "validation_reason": null
+    },
+    {
+      "expression": "rank(ts_sum(volume, 21)) * ts_rank(close, 63)",
+      "settings": {
+        "universe": "TOP3000",
+        "neutralization": "SECTOR",
+        "decay": 20,
+        "truncation": 0.1,
+        "delay": 1,
+        "nan_handling": "ON"
+      },
+      "source": "llm-arxiv",
+      "paper_title": "Spatio-Temporal Momentum: Jointly Learning Time-Series and Cross-Sectional Strategies",
+      "paper_url": "http://arxiv.org/abs/2302.10175v1",
+      "anomaly": "Stocks with high cross-sectional momentum features over time will outperform those with low cross-sectional momentum features",
+      "signal_type": "momentum",
+      "rationale": "This expression combines the cross-sectional volume momentum with the time-series price momentum to identify stocks with high trading activity and price appreciation.",
+      "llm_confidence": 0.7,
+      "anomaly_confidence": 0.8,
+      "valid": true,
+      "validation_reason": null
+    },
+    {
+      "expression": "group_zscore(ts_delta(close, 21), subindustry) * rank(ts_mean(volume, 21))",
+      "settings": {
+        "universe": "TOP3000",
+        "neutralization": "MARKET",
+        "decay": 20,
+        "truncation": 0.05,
+        "delay": 1,
+        "nan_handling": "ON"
+      },
+      "source": "llm-arxiv",
+      "paper_title": "Spatio-Temporal Momentum: Jointly Learning Time-Series and Cross-Sectional Strategies",
+      "paper_url": "http://arxiv.org/abs/2302.10175v1",
+      "anomaly": "Stocks with high cross-sectional momentum features over time will outperform those with low cross-sectional momentum features",
+      "signal_type": "momentum",
+      "rationale": "This expression uses the z-score of the time-series price momentum within each subindustry and multiplies it by the cross-sectional volume rank to capture the anomaly.",
+      "llm_confidence": 0.9,
+      "anomaly_confidence": 0.8,
+      "valid": true,
+      "validation_reason": null
+    },
+    {
+      "expression": "ts_rank(ts_delta(vwap, 21), 63) * group_rank(ts_rank(close, 21), subindustry)",
+      "settings": {
+        "universe": "TOP3000",
+        "neutralization": "INDUSTRY",
+        "decay": 20,
+        "truncation": 0.1,
+        "delay": 1,
+        "nan_handling": "ON"
+      },
+      "source": "llm-arxiv",
+      "paper_title": "Spatio-Temporal Momentum: Jointly Learning Time-Series and Cross-Sectional Strategies",
+      "paper_url": "http://arxiv.org/abs/2302.10175v1",
+      "anomaly": "Stocks with high cross-sectional momentum features over time will outperform those with low cross-sectional momentum features",
+      "signal_type": "momentum",
+      "rationale": "This expression combines the time-series momentum of the volume-weighted average price with the cross-sectional price momentum within each subindustry to identify stocks with high momentum.",
+      "llm_confidence": 0.6,
+      "anomaly_confidence": 0.8,
+      "valid": true,
+      "validation_reason": null
+    },
+    {
+      "expression": "rank(ts_sum(ts_delta(close, 21), 21)) * group_scale(ts_rank(close, 21), subindustry)",
+      "settings": {
+        "universe": "TOP3000",
+        "neutralization": "SECTOR",
+        "decay": 20,
+        "truncation": 0.05,
+        "delay": 1,
+        "nan_handling": "ON"
+      },
+      "source": "llm-arxiv",
+      "paper_title": "Spatio-Temporal Momentum: Jointly Learning Time-Series and Cross-Sectional Strategies",
+      "paper_url": "http://arxiv.org/abs/2302.10175v1",
+      "anomaly": "Stocks with high cross-sectional momentum features over time will outperform those with low cross-sectional momentum features",
+      "signal_type": "momentum",
+      "rationale": "This expression captures the cross-sectional momentum of stocks within each subindustry by ranking the time-series momentum of each stock's price over the past 21 days and scaling it within each group.",
+      "llm_confidence": 0.85,
+      "anomaly_confidence": 0.8,
+      "valid": true,
+      "validation_reason": null
+    },
+    {
+      "expression": "group_rank(ts_rank(ts_delta(close, 5), 10), subindustry)",
+      "settings": {
+        "universe": "TOP3000",
+        "neutralization": "INDUSTRY",
+        "decay": 10,
+        "truncation": 0.05,
+        "delay": 1,
+        "nan_handling": "ON"
+      },
+      "source": "llm-arxiv",
+      "paper_title": "Hidden Markov Models Applied To Intraday Momentum Trading With Side Information",
+      "paper_url": "http://arxiv.org/abs/2006.08307v1",
+      "anomaly": "Intraday momentum trading using Hidden Markov Models with side information can generate profitable trading signals",
+      "signal_type": "momentum",
+      "rationale": "This expression captures intraday momentum by ranking stocks based on their recent price changes and then grouping them by subindustry to reduce sector-specific noise.",
+      "llm_confidence": 0.7,
+      "anomaly_confidence": 0.8,
+      "valid": true,
+      "validation_reason": null
+    },
+    {
+      "expression": "rank(ts_sum(volume, 5)) > 0.5 ? 1 : rank(-ts_delta(close, 2))",
+      "settings": {
+        "universe": "TOP3000",
+        "neutralization": "SECTOR",
+        "decay": 5,
+        "truncation": 0.1,
+        "delay": 1,
+        "nan_handling": "ON"
+      },
+      "source": "llm-arxiv",
+      "paper_title": "Hidden Markov Models Applied To Intraday Momentum Trading With Side Information",
+      "paper_url": "http://arxiv.org/abs/2006.08307v1",
+      "anomaly": "Intraday momentum trading using Hidden Markov Models with side information can generate profitable trading signals",
+      "signal_type": "momentum",
+      "rationale": "This expression generates a trading signal based on the interaction between volume and price momentum, favoring stocks with high volume and positive price changes.",
+      "llm_confidence": 0.6,
+      "anomaly_confidence": 0.8,
+      "valid": true,
+      "validation_reason": null
+    },
+    {
+      "expression": "trade_when(ts_arg_max(volume, 5) == 0, -rank(ts_delta(close, 3)), -1)",
+      "settings": {
+        "universe": "TOP3000",
+        "neutralization": "MARKET",
+        "decay": 5,
+        "truncation": 0.05,
+        "delay": 1,
+        "nan_handling": "ON"
+      },
+      "source": "llm-arxiv",
+      "paper_title": "Hidden Markov Models Applied To Intraday Momentum Trading With Side Information",
+      "paper_url": "http://arxiv.org/abs/2006.08307v1",
+      "anomaly": "Intraday momentum trading using Hidden Markov Models with side information can generate profitable trading signals",
+      "signal_type": "momentum",
+      "rationale": "This expression uses a trade-when condition to capture the start of a new trend, shorting stocks with declining prices and low volume, while going long on stocks with rising prices and high volume.",
+      "llm_confidence": 0.8,
+      "anomaly_confidence": 0.8,
+      "valid": true,
+      "validation_reason": null
+    },
+    {
+      "expression": "rank(ts_decay_linear(ts_delta(close, 5), 10))",
+      "settings": {
+        "universe": "TOP3000",
+        "neutralization": "INDUSTRY",
+        "decay": 10,
+        "truncation": 0.1,
+        "delay": 1,
+        "nan_handling": "ON"
+      },
+      "source": "llm-arxiv",
+      "paper_title": "Hidden Markov Models Applied To Intraday Momentum Trading With Side Information",
+      "paper_url": "http://arxiv.org/abs/2006.08307v1",
+      "anomaly": "Intraday momentum trading using Hidden Markov Models with side information can generate profitable trading signals",
+      "signal_type": "momentum",
+      "rationale": "This expression applies a linear decay to the recent price changes, giving more weight to recent price movements and reducing the impact of older price changes.",
+      "llm_confidence": 0.65,
+      "anomaly_confidence": 0.8,
+      "valid": true,
+      "validation_reason": null
+    },
+    {
+      "expression": "group_rank(ts_rank(ts_corr(close, volume, 5), 10), subindustry)",
+      "settings": {
+        "universe": "TOP3000",
+        "neutralization": "SECTOR",
+        "decay": 10,
+        "truncation": 0.05,
+        "delay": 1,
+        "nan_handling": "ON"
+      },
+      "source": "llm-arxiv",
+      "paper_title": "Hidden Markov Models Applied To Intraday Momentum Trading With Side Information",
+      "paper_url": "http://arxiv.org/abs/2006.08307v1",
+      "anomaly": "Intraday momentum trading using Hidden Markov Models with side information can generate profitable trading signals",
+      "signal_type": "momentum",
+      "rationale": "This expression captures the correlation between price and volume, ranking stocks based on their recent correlation and then grouping them by subindustry to reduce sector-specific noise.",
+      "llm_confidence": 0.75,
+      "anomaly_confidence": 0.8,
+      "valid": true,
+      "validation_reason": null
+    },
+    {
+      "expression": "group_rank(ts_rank(ts_delta(close, 21), 63), subindustry)",
+      "settings": {
+        "universe": "TOP3000",
+        "neutralization": "INDUSTRY",
+        "decay": 20,
+        "truncation": 0.05,
+        "delay": 1,
+        "nan_handling": "ON"
+      },
+      "source": "llm-arxiv",
+      "paper_title": "Enhancing Time Series Momentum Strategies Using Deep Neural Networks",
+      "paper_url": "http://arxiv.org/abs/1904.04912v3",
+      "anomaly": "A deep neural network can enhance time series momentum strategies by learning trend estimation and position sizing rules in a data-driven manner",
+      "signal_type": "momentum",
+      "rationale": "This expression captures the momentum anomaly by ranking stocks based on their 21-day price changes within each subindustry.",
+      "llm_confidence": 0.8,
+      "anomaly_confidence": 0.8,
+      "valid": true,
+      "validation_reason": null
+    },
+    {
+      "expression": "rank(ts_sum(vec_avg([close, volume]), 21)) > 0.5 ? 1 : rank(-ts_delta(close, 5))",
+      "settings": {
+        "universe": "TOP3000",
+        "neutralization": "SECTOR",
+        "decay": 15,
+        "truncation": 0.1,
+        "delay": 1,
+        "nan_handling": "ON"
+      },
+      "source": "llm-arxiv",
+      "paper_title": "Enhancing Time Series Momentum Strategies Using Deep Neural Networks",
+      "paper_url": "http://arxiv.org/abs/1904.04912v3",
+      "anomaly": "A deep neural network can enhance time series momentum strategies by learning trend estimation and position sizing rules in a data-driven manner",
+      "signal_type": "momentum",
+      "rationale": "This expression combines the momentum signal with volume information and uses a conditional statement to switch between long and short positions.",
+      "llm_confidence": 0.7,
+      "anomaly_confidence": 0.8,
+      "valid": true,
+      "validation_reason": null
+    },
+    {
+      "expression": "trade_when(ts_arg_max(volume, 5) == 0, -rank(ts_delta(close, 3)), -1)",
+      "settings": {
+        "universe": "TOP3000",
+        "neutralization": "MARKET",
+        "decay": 10,
+        "truncation": 0.2,
+        "delay": 1,
+        "nan_handling": "ON"
+      },
+      "source": "llm-arxiv",
+      "paper_title": "Enhancing Time Series Momentum Strategies Using Deep Neural Networks",
+      "paper_url": "http://arxiv.org/abs/1904.04912v3",
+      "anomaly": "A deep neural network can enhance time series momentum strategies by learning trend estimation and position sizing rules in a data-driven manner",
+      "signal_type": "momentum",
+      "rationale": "This expression uses a trade-when condition to switch between long and short positions based on the maximum volume over the past 5 days.",
+      "llm_confidence": 0.6,
+      "anomaly_confidence": 0.8,
+      "valid": true,
+      "validation_reason": null
+    },
+    {
+      "expression": "ts_rank(ts_covariance(volume, close, 21), 63)",
+      "settings": {
+        "universe": "TOP3000",
+        "neutralization": "INDUSTRY",
+        "decay": 20,
+        "truncation": 0.05,
+        "delay": 1,
+        "nan_handling": "ON"
+      },
+      "source": "llm-arxiv",
+      "paper_title": "Enhancing Time Series Momentum Strategies Using Deep Neural Networks",
+      "paper_url": "http://arxiv.org/abs/1904.04912v3",
+      "anomaly": "A deep neural network can enhance time series momentum strategies by learning trend estimation and position sizing rules in a data-driven manner",
+      "signal_type": "momentum",
+      "rationale": "This expression captures the relationship between volume and price changes over the past 21 days and ranks stocks based on this covariance.",
+      "llm_confidence": 0.9,
+      "anomaly_confidence": 0.8,
+      "valid": true,
+      "validation_reason": null
+    },
+    {
+      "expression": "group_scale(ts_rank(ts_delta(close, 21), 63), subindustry)",
+      "settings": {
+        "universe": "TOP3000",
+        "neutralization": "SECTOR",
+        "decay": 20,
+        "truncation": 0.1,
+        "delay": 1,
+        "nan_handling": "ON"
+      },
+      "source": "llm-arxiv",
+      "paper_title": "Enhancing Time Series Momentum Strategies Using Deep Neural Networks",
+      "paper_url": "http://arxiv.org/abs/1904.04912v3",
+      "anomaly": "A deep neural network can enhance time series momentum strategies by learning trend estimation and position sizing rules in a data-driven manner",
+      "signal_type": "momentum",
+      "rationale": "This expression scales the momentum signal within each subindustry to improve comparability across different groups.",
+      "llm_confidence": 0.8,
+      "anomaly_confidence": 0.8,
+      "valid": true,
+      "validation_reason": null
+    },
+    {
+      "expression": "group_rank(ts_rank(ts_delta(close, 63), 126), subindustry)",
+      "settings": {
+        "universe": "TOP3000",
+        "neutralization": "SUBINDUSTRY",
+        "decay": 20,
+        "truncation": 0.1,
+        "delay": 1,
+        "nan_handling": "ON"
+      },
+      "source": "llm-arxiv",
+      "paper_title": "Slow Momentum with Fast Reversion: A Trading Strategy Using Deep Learning and Changepoint Detection",
+      "paper_url": "http://arxiv.org/abs/2105.13727v3",
+      "anomaly": "A trading strategy combining slow momentum with fast mean reversion, using deep learning and changepoint detection, can outperform traditional momentum strategies.",
+      "signal_type": "momentum",
+      "rationale": "This expression combines slow momentum with industry neutralization to capture regime changes.",
+      "llm_confidence": 0.8,
+      "anomaly_confidence": 0.8,
+      "valid": true,
+      "validation_reason": null
+    },
+    {
+      "expression": "-ts_delta(close, 5)",
+      "settings": {
+        "universe": "TOP3000",
+        "neutralization": "NONE",
+        "decay": 10,
+        "truncation": 0.2,
+        "delay": 1,
+        "nan_handling": "ON"
+      },
+      "source": "llm-arxiv",
+      "paper_title": "Slow Momentum with Fast Reversion: A Trading Strategy Using Deep Learning and Changepoint Detection",
+      "paper_url": "http://arxiv.org/abs/2105.13727v3",
+      "anomaly": "A trading strategy combining slow momentum with fast mean reversion, using deep learning and changepoint detection, can outperform traditional momentum strategies.",
+      "signal_type": "momentum",
+      "rationale": "This expression uses fast mean reversion to capture short-term price movements.",
+      "llm_confidence": 0.6,
+      "anomaly_confidence": 0.8,
+      "valid": true,
+      "validation_reason": null
+    },
+    {
+      "expression": "trade_when(ts_arg_max(volume, 5) == 0, -rank(ts_delta(close, 3)), -1)",
+      "settings": {
+        "universe": "TOP3000",
+        "neutralization": "NONE",
+        "decay": 15,
+        "truncation": 0.15,
+        "delay": 1,
+        "nan_handling": "ON"
+      },
+      "source": "llm-arxiv",
+      "paper_title": "Slow Momentum with Fast Reversion: A Trading Strategy Using Deep Learning and Changepoint Detection",
+      "paper_url": "http://arxiv.org/abs/2105.13727v3",
+      "anomaly": "A trading strategy combining slow momentum with fast mean reversion, using deep learning and changepoint detection, can outperform traditional momentum strategies.",
+      "signal_type": "momentum",
+      "rationale": "This expression combines volume-based timing with fast mean reversion to capture potential regime changes.",
+      "llm_confidence": 0.7,
+      "anomaly_confidence": 0.8,
+      "valid": true,
+      "validation_reason": null
+    },
+    {
+      "expression": "rank(ts_sum(ts_delta(close, 21), 42))",
+      "settings": {
+        "universe": "TOP3000",
+        "neutralization": "NONE",
+        "decay": 20,
+        "truncation": 0.2,
+        "delay": 1,
+        "nan_handling": "ON"
+      },
+      "source": "llm-arxiv",
+      "paper_title": "Slow Momentum with Fast Reversion: A Trading Strategy Using Deep Learning and Changepoint Detection",
+      "paper_url": "http://arxiv.org/abs/2105.13727v3",
+      "anomaly": "A trading strategy combining slow momentum with fast mean reversion, using deep learning and changepoint detection, can outperform traditional momentum strategies.",
+      "signal_type": "momentum",
+      "rationale": "This expression uses slow momentum with a longer holding period to capture persistent trends.",
+      "llm_confidence": 0.5,
+      "anomaly_confidence": 0.8,
+      "valid": true,
+      "validation_reason": null
+    },
+    {
+      "expression": "group_rank(ts_rank(ts_corr(close, volume, 21), 42), subindustry)",
+      "settings": {
+        "universe": "TOP3000",
+        "neutralization": "SUBINDUSTRY",
+        "decay": 20,
+        "truncation": 0.1,
+        "delay": 1,
+        "nan_handling": "ON"
+      },
+      "source": "llm-arxiv",
+      "paper_title": "Slow Momentum with Fast Reversion: A Trading Strategy Using Deep Learning and Changepoint Detection",
+      "paper_url": "http://arxiv.org/abs/2105.13727v3",
+      "anomaly": "A trading strategy combining slow momentum with fast mean reversion, using deep learning and changepoint detection, can outperform traditional momentum strategies.",
+      "signal_type": "momentum",
+      "rationale": "This expression combines slow momentum with volume-based correlation to capture industry-specific trends.",
+      "llm_confidence": 0.9,
+      "anomaly_confidence": 0.8,
+      "valid": true,
+      "validation_reason": null
+    }
+  ]
+}

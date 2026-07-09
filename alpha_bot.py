@@ -14,6 +14,7 @@ import os
 import concurrent.futures
 from scrape_brain import session, BASE_URL
 from alpha_intelligence import AlphaIntelligence
+import ml_predictor
 
 # ─── Constants ────────────────────────────────────────────────────
 MAX_WORKERS = 3
@@ -156,77 +157,6 @@ def save_submittable(expression, settings, result):
         f.write("\n")
 
 
-# ─── Phase 2: Parameter sweep ────────────────────────────────────
-def parameter_sweep(expression, base_settings, initial_fitness, initial_result):
-    """
-    Research-backed sweep order:
-      1. Neutralization (biggest lever for Sharpe)
-      2. Decay           (biggest lever for Turnover/Fitness)
-      3. Truncation
-      4. nanHandling toggle
-    Only sweeps if we have a chance of reaching FITNESS_SUBMIT.
-    Early-exits as soon as FITNESS_SAVE is reached.
-    """
-    if initial_fitness < FITNESS_ABANDON:
-        return None
-
-    best_fitness = initial_fitness
-    best_settings = base_settings.copy()
-    best_result = initial_result
-
-    def _try(expr, trial_settings):
-        nonlocal best_fitness, best_settings, best_result
-        res = simulate(expr, trial_settings)
-        if res:
-            log_simulation(expr, trial_settings, res)
-            if res['fitness'] > best_fitness:
-                best_fitness = res['fitness']
-                best_settings = trial_settings.copy()
-                best_result = res
-        return best_fitness >= FITNESS_SAVE  # True = can stop early
-
-    # ── 1. Neutralization sweep ──────────────────────────────────
-    if initial_fitness < FITNESS_SWEEP:
-        for neut in ['SUBINDUSTRY', 'INDUSTRY', 'MARKET', 'SECTOR']:
-            if neut == base_settings.get('neutralization'):
-                continue
-            trial = best_settings.copy(); trial['neutralization'] = neut
-            if _try(expression, trial):
-                break
-
-    # ── 2. Decay sweep ───────────────────────────────────────────
-    if best_fitness < FITNESS_SUBMIT:
-        for decay in [0, 3, 5, 8, 10, 15, 20]:
-            if decay == best_settings.get('decay'):
-                continue
-            trial = best_settings.copy(); trial['decay'] = decay
-            if _try(expression, trial):
-                break
-
-    # ── 3. Truncation sweep ──────────────────────────────────────
-    if best_fitness < FITNESS_SUBMIT:
-        for trunc in [0.01, 0.05, 0.08, 0.1]:
-            if trunc == best_settings.get('truncation'):
-                continue
-            trial = best_settings.copy(); trial['truncation'] = trunc
-            if _try(expression, trial):
-                break
-
-    # ── 4. nanHandling toggle ────────────────────────────────────
-    if best_fitness < FITNESS_SUBMIT:
-        current_nh = best_settings.get('nan_handling', 'ON')
-        for nh in (['OFF'] if current_nh == 'ON' else ['ON']):
-            trial = best_settings.copy(); trial['nan_handling'] = nh
-            _try(expression, trial)
-
-    if best_fitness < FITNESS_SUBMIT:
-        return None
-
-    tag = '[★ STAR]' if best_fitness >= FITNESS_SAVE else '[◆ PASS]'
-    print(f"  {tag} Fitness={best_fitness:.2f}, Sharpe={best_result.get('sharpe',0):.2f}, "
-          f"Turnover={best_result.get('turnover',0):.1%}")
-    return (best_settings, best_result)
-
 
 # ─── Intelligence-driven screening ───────────────────────────────
 def _passes_is_checks(result):
@@ -246,7 +176,7 @@ def _passes_is_checks(result):
 def screen_queue_item(item):
     """Test a single queue item (expression + settings) from the intelligence engine."""
     expression = item['expression']
-    settings = item['settings']
+    base_settings = item['settings']
     source = item.get('source', 'unknown')
     tmpl_name = item.get('template_name', '?')
     priority = item.get('priority', 0)
@@ -254,6 +184,32 @@ def screen_queue_item(item):
     print(f"\n{'─'*60}")
     print(f"  [{source}] {tmpl_name} (priority={priority:.2f})")
     print(f"  {expression[:70]}{'...' if len(expression) > 70 else ''}")
+
+    # --- ML JUNIOR QUANT PRE-SCREENING ---
+    if item.get('skip_ml', False):
+        settings = base_settings
+        if 'ml_pred_fit' in item:
+            print(f"  [ML Predictor] Expected Fitness: {item['ml_pred_fit']:.2f}, Success Prob: {item['ml_pred_prob']:.1%}")
+            print(f"  [ML Predictor] Optimal Settings: decay={settings.get('decay')}, "
+                  f"truncation={settings.get('truncation')}, neutralization={settings.get('neutralization')}")
+    else:
+        # Intercept the expression and locally sweep 100+ parameter permutations in python
+        # to find the absolute best decay, truncation, and neutralization.
+        try:
+            opt_settings, pred_fit, pred_prob = ml_predictor.optimize_settings(expression, base_settings)
+            print(f"  [ML Predictor] Expected Fitness: {pred_fit:.2f}, Success Prob: {pred_prob:.1%}")
+            
+            # If the ML model is highly confident it will fail, skip the API call entirely
+            if pred_prob < 0.005:
+                print(f"  → Skipping: Predicted probability of success < 0.5%.")
+                return None
+                
+            settings = opt_settings
+            print(f"  [ML Predictor] Optimal Settings: decay={settings.get('decay')}, "
+                  f"truncation={settings.get('truncation')}, neutralization={settings.get('neutralization')}")
+        except Exception as e:
+            print(f"  [ML Predictor] Failed, using base settings. Error: {e}")
+            settings = base_settings
 
     res = simulate(expression, settings)
     if not res:
@@ -276,17 +232,13 @@ def screen_queue_item(item):
             expression, res = neg_expr, neg_res
             print(f"  → Negated: Sharpe={res['sharpe']:.2f}, Fitness={res['fitness']:.2f}")
 
-    if (res.get('fitness', 0) or 0) >= FITNESS_ABANDON:
-        sweep_result = parameter_sweep(expression, settings, res['fitness'], res)
-        if sweep_result:
-            best_settings, best_result = sweep_result
-            if _passes_is_checks(best_result):
-                save_submittable(expression, best_settings, best_result)
-                return (expression, best_settings, best_result)
-            else:
-                print(f"  → Passed Fitness gate but failed IS checks — not saving.")
-
-    return None
+    # No brute-force sweep needed since ML predicted the best parameters
+    if _passes_is_checks(res):
+        save_submittable(expression, settings, res)
+        return (expression, settings, res)
+    else:
+        print(f"  → Failed IS checks — not saving.")
+        return None
 
 
 def load_blacklist():

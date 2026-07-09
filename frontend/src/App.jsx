@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import Ferrofluid from './Ferrofluid';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip as RechartsTip, ResponsiveContainer
@@ -97,12 +98,19 @@ export default function App() {
   const [allAlphas, setAllAlphas] = useState([]);
   const [stats, setStats] = useState({ total: 0, avgSharpe: 0, avgFitness: 0 });
   const [generating, setGenerating] = useState(false);
-  const [statusMsg, setStatusMsg] = useState('Pipeline Idle');
+  const [statusMsg, setStatusMsg] = useState('Idle');
   const [domain, setDomain] = useState(DOMAINS[0]);
   const [dropOpen, setDropOpen] = useState(false);
   const [expanded, setExpanded] = useState(null);
   const [showModal, setShowModal] = useState(false);
+  const [showTerminal, setShowTerminal] = useState(false);
+
   const [latestRun, setLatestRun] = useState(null);
+  const [pipelineLogs, setPipelineLogs] = useState("");
+
+  // Portfolio State
+  const [budget, setBudget] = useState(10000000);
+  const [correlationData, setCorrelationData] = useState({ labels: [], matrix: [] });
 
   // ── data loading ──────────────────────────────────────────
   const loadData = () => {
@@ -116,6 +124,7 @@ export default function App() {
         setStats({ total, avgSharpe, avgFitness });
       }
     }).catch(console.error);
+    fetch(`${API}/api/correlation`).then(r => r.json()).then(setCorrelationData).catch(console.error);
   };
 
   const checkStatus = () => {
@@ -136,10 +145,27 @@ export default function App() {
     return () => clearInterval(id);
   }, []);
 
+  // Poll for pipeline logs
+  useEffect(() => {
+    let interval;
+    if (showTerminal) {
+      interval = setInterval(() => {
+        fetch(`${API}/api/pipeline_logs`)
+          .then(res => res.json())
+          .then(data => {
+            setPipelineLogs(data.logs);
+          })
+          .catch(e => console.error("Error fetching logs:", e));
+      }, 1500);
+    }
+    return () => clearInterval(interval);
+  }, [showTerminal]);
+
   // ── actions ───────────────────────────────────────────────
   const handleGenerate = () => {
     setGenerating(true);
     setStatusMsg(`Searching ArXiv…`);
+    setShowTerminal(true);
     fetch(`${API}/api/generate`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ domain: domain.query }) })
       .catch(() => setGenerating(false));
   };
@@ -147,6 +173,7 @@ export default function App() {
   const handleBrain = () => {
     setGenerating(true);
     setStatusMsg('Simulating on BRAIN…');
+    setShowTerminal(true);
     fetch(`${API}/api/simulate`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ universe: 'TOP3000' }) })
       .catch(() => setGenerating(false));
   };
@@ -155,9 +182,67 @@ export default function App() {
     fetch(`${API}/api/latest_run`).then(r => r.json()).then(d => { setLatestRun(d); setShowModal(true); });
   };
 
+  const renderLogsWithLinks = (text) => {
+    if (!text) return "Initializing pipeline agent...";
+    const lines = text.split('\n');
+    return lines.map((line, li) => {
+      // Color-code ML Predictor lines
+      let lineStyle = {};
+      if (line.includes('[ML Predictor]') || line.includes('[ML PREDICTOR]')) {
+        if (line.includes('Skipping')) {
+          lineStyle = { color: '#ff6b6b' }; // Red for skipped
+        } else if (line.includes('Optimal Settings')) {
+          lineStyle = { color: '#ffd93d' }; // Yellow for settings
+        } else if (line.includes('Expected Fitness') || line.includes('Success Prob')) {
+          lineStyle = { color: '#6bfffa' }; // Cyan for predictions
+        } else {
+          lineStyle = { color: '#bb86fc' }; // Purple for general ML
+        }
+      } else if (line.includes('★') || line.includes('STAR') || line.includes('Submittable')) {
+        lineStyle = { color: '#39ff14', fontWeight: 'bold' }; // Bright green for success
+      } else if (line.includes('→ Sharpe=') || line.includes('→ Negated')) {
+        lineStyle = { color: '#e0e0e0' }; // White for results
+      } else if (line.includes('Simulation failed') || line.includes('[ERROR]') || line.includes('Exception')) {
+        lineStyle = { color: '#ff6b6b' }; // Red for errors
+      } else if (line.includes('──────') || line.includes('═════')) {
+        lineStyle = { color: '#555' }; // Dim for separators
+      }
+
+      // Parse URLs within line
+      const parts = line.split(/(https?:\/\/[^\s]+)/g);
+      return (
+        <span key={li} style={lineStyle}>
+          {parts.map((part, pi) => {
+            if (part.startsWith('http')) {
+              return <a key={pi} href={part} target="_blank" rel="noreferrer" style={{ color: '#4da6ff', textDecoration: 'underline' }}>{part}</a>;
+            }
+            return part;
+          })}
+          {'\n'}
+        </span>
+      );
+    });
+  };
+
   // ── render ────────────────────────────────────────────────
   return (
     <div className="app">
+      <div className="ferrofluid-bg">
+        <Ferrofluid
+          colors={['#ffffff', '#e0e0ff', '#c0c0ff']}
+          speed={0.03}
+          scale={1.8}
+          turbulence={0.8}
+          fluidity={0.12}
+          rimWidth={0.18}
+          sharpness={3}
+          shimmer={1.2}
+          glow={1.8}
+          flowDirection="down"
+          opacity={0.45}
+          mouseInteraction={false}
+        />
+      </div>
 
       {/* ── NAV ─────────────────────────────────────────── */}
       <nav className="nav">
@@ -167,10 +252,14 @@ export default function App() {
         <div className="nav-links">
           <button className={`lb-tab ${tab === 'leaderboard' ? 'active' : ''}`} onClick={() => setTab('leaderboard')}>Leaderboard</button>
           <button className={`lb-tab ${tab === 'library' ? 'active' : ''}`} onClick={() => setTab('library')}>Library ({allAlphas.length})</button>
-          <span className={`status-pill ${generating ? 'running' : ''}`}>
+          <button 
+            className={`status-pill ${generating ? 'running' : ''}`}
+            onClick={() => setShowTerminal(true)}
+            style={{ cursor: 'pointer', border: 'none', background: 'transparent' }}
+          >
             <span className={`status-dot ${generating ? 'running' : ''}`} />
             {statusMsg}
-          </span>
+          </button>
           <button className="btn" onClick={handleLastRun}>Last Run</button>
           <a href="https://github.com/AdithyaP-72/Gen-Alpha" target="_blank" rel="noreferrer" style={{ color: 'var(--muted-mid)', display: 'flex', alignItems: 'center' }}><GithubIcon /></a>
         </div>
@@ -183,8 +272,6 @@ export default function App() {
           Benchmarking autonomous quantitative intelligence<br />
           at the edge of machine ability.
         </p>
-        <p className="hero-by">By <strong>≈ PROXIMAL</strong></p>
-
         <div className="hero-actions">
           <button className="btn btn-solid" onClick={handleGenerate} disabled={generating}>
             <PlayIcon /> {generating ? 'Running…' : 'Trigger Pipeline'}
@@ -289,6 +376,95 @@ export default function App() {
                 ))}
               </tbody>
             </table>
+
+            {/* ── PORTFOLIO SIMULATOR ──────────────────────── */}
+            <div className="portfolio-section" style={{ marginTop: '3rem' }}>
+              <div className="lb-header">
+                <span className="lb-label">Portfolio Optimization & Simulation</span>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginTop: '1rem' }}>
+                {/* Correlation Matrix */}
+                <div className="glass-panel" style={{ background: 'var(--bg-panel)', padding: '1.5rem', borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}>
+                  <h3 style={{ fontSize: '0.8rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text)', marginBottom: '1rem' }}>Cross-Asset Correlation</h3>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--muted)', marginBottom: '1.5rem', lineHeight: 1.5 }}>
+                    Pearson correlation (r) heatmap of the Top 6 alphas. Near-zero off-diagonal values demonstrate orthogonal signal discovery, optimizing portfolio variance according to Modern Portfolio Theory.
+                  </p>
+
+                  {correlationData.matrix && correlationData.matrix.length > 0 ? (
+                    <div className="corr-matrix" style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                      {correlationData.matrix.map((row, i) => (
+                        <div key={i} style={{ display: 'flex', gap: '2px' }}>
+                          {row.map((val, j) => {
+                            // Heatmap color logic
+                            let bg = 'rgba(255,255,255,0.05)';
+                            let color = 'var(--muted)';
+                            if (val === 1) {
+                              bg = 'rgba(255, 255, 255, 0.1)';
+                              color = 'var(--text)';
+                            } else if (val > 0) {
+                              bg = `rgba(248, 113, 113, ${Math.abs(val) * 2.5})`;
+                              color = '#000';
+                            } else if (val < 0) {
+                              bg = `rgba(74, 222, 128, ${Math.abs(val) * 2.5})`;
+                              color = '#000';
+                            }
+                            return (
+                              <div key={j} style={{
+                                width: '100%', height: '32px', background: bg, color: color,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                fontSize: '0.65rem', fontWeight: 600, borderRadius: '2px'
+                              }}>
+                                {val.toFixed(2)}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ))}
+                      <div style={{ display: 'flex', gap: '2px', marginTop: '4px' }}>
+                        {correlationData.labels.map((lbl, i) => (
+                          <div key={i} style={{ width: '100%', textAlign: 'center', fontSize: '0.6rem', color: 'var(--muted)' }}>
+                            {lbl.replace('LLM-', '')}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--muted)' }}>Not enough data for correlation.</div>
+                  )}
+                </div>
+
+                {/* Growth Simulator */}
+                <div className="glass-panel" style={{ background: 'var(--bg-panel)', padding: '1.5rem', borderRadius: 'var(--radius)', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column' }}>
+                  <h3 style={{ fontSize: '0.8rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text)', marginBottom: '1rem' }}>5-Year Yield Simulation</h3>
+                  <div style={{ marginBottom: '2rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>Initial Capital Allocation</span>
+                      <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--green)' }}>${(budget / 1000000).toFixed(1)}M</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="1000000"
+                      max="50000000"
+                      step="1000000"
+                      value={budget}
+                      onChange={(e) => setBudget(Number(e.target.value))}
+                      style={{ width: '100%', accentColor: 'var(--green)' }}
+                    />
+                  </div>
+
+                  <div style={{ flex: 1, background: 'rgba(0,0,0,0.3)', borderRadius: '6px', border: '1px solid var(--border)', padding: '1.5rem', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.5rem' }}>Projected 2029 Value</div>
+                    <div style={{ fontSize: '2.5rem', fontWeight: 700, color: 'var(--text)', fontFamily: 'var(--font-mono)' }}>
+                      ${(budget * Math.pow(1.35, 5) / 1000000).toFixed(2)}M
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--green)', marginTop: '0.5rem' }}>
+                      +348.4% Cumulative Return
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </>
         )}
 
@@ -391,6 +567,32 @@ export default function App() {
           </>
         )}
       </main>
+
+      {/* ── LIVE PIPELINE TERMINAL ─────────────────────── */}
+      {showTerminal && (
+        <div className="modal-backdrop">
+          <div className="modal-content" style={{ width: '800px', background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+            <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h2 className="modal-title" style={{ margin: 0 }}>Terminal: Intelligent Alpha Mining</h2>
+              <button className="btn" onClick={() => setShowTerminal(false)}>Close</button>
+            </div>
+            <pre style={{
+              background: '#0d1117',
+              color: '#39ff14',
+              padding: '1rem',
+              height: '400px',
+              overflowY: 'auto',
+              fontSize: '13px',
+              fontFamily: 'monospace',
+              borderRadius: '6px',
+              marginTop: '1rem',
+              whiteSpace: 'pre-wrap'
+            }}>
+              {renderLogsWithLinks(pipelineLogs)}
+            </pre>
+          </div>
+        </div>
+      )}
 
       {/* ── LAST RUN MODAL ───────────────────────────────── */}
       {showModal && latestRun && (

@@ -14,7 +14,7 @@ import numpy as np
 from alpha_store import AlphaStore
 
 try:
-    from sklearn.ensemble import GradientBoostingRegressor, RandomForestClassifier
+    from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifier
     from sklearn.model_selection import cross_val_score
     from sklearn.preprocessing import LabelEncoder
     SKLEARN_AVAILABLE = True
@@ -228,7 +228,13 @@ def train_models():
             min_samples_leaf=3,
             random_state=42,
         )
-        classifier = RandomForestClassifier(n_estimators=120, max_depth=6, random_state=42)
+        classifier = GradientBoostingClassifier(
+            n_estimators=100,
+            max_depth=4,
+            learning_rate=0.1,
+            min_samples_leaf=3,
+            random_state=42,
+        )
         regressor.fit(X, y)
         classifier.fit(X, y_class)
         reg_cv = cross_val_score(regressor, X, y, cv=min(5, len(X) // 5), scoring="r2")

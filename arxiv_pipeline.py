@@ -13,6 +13,7 @@ import argparse
 import json
 import time
 import re
+import builtins
 from pathlib import Path
 from collections import Counter
 
@@ -20,6 +21,21 @@ import arxiv
 
 from llm_client import GroqClient, OPERATOR_NAMES
 from alpha_validation import validate_candidate
+
+LOG_FILE = "pipeline_progress.log"
+
+def custom_print(*args, **kwargs):
+    builtins._original_print(*args, **kwargs)
+    message = " ".join(str(a) for a in args)
+    timestamp = time.strftime("[%H:%M:%S]")
+    try:
+        with open(LOG_FILE, "a") as f:
+            f.write(f"{timestamp} {message}\n")
+    except Exception:
+        pass
+
+builtins._original_print = builtins.print
+builtins.print = custom_print
 
 # ─── Configuration ────────────────────────────────────────────────
 OUTPUT_FILE = "llm_generated_alphas.json"
@@ -315,19 +331,29 @@ def run_pipeline(max_papers=10, custom_query=None):
             print(f"  ✗ Error processing paper: {e}")
         time.sleep(0.5)  # Be polite to Groq
 
-    # Save results
-    all_alphas = existing_alphas + all_alphas
-    valid_alphas = [a for a in all_alphas if a.get("valid")]
+    # Save accumulated results
+    accumulated_alphas = existing_alphas + all_alphas
+    valid_alphas = [a for a in accumulated_alphas if a.get("valid")]
     output = {
         "generated_at": time.strftime("%Y-%m-%d %H:%M:%S"),
         "papers_processed": len(all_papers) + len(seen_ids),
-        "total_expressions": len(all_alphas),
+        "total_expressions": len(accumulated_alphas),
         "valid_expressions": len(valid_alphas),
-        "alphas": all_alphas,
+        "alphas": accumulated_alphas,
     }
-
     with open(OUTPUT_FILE, "w") as f:
         json.dump(output, f, indent=2)
+
+    # Save only the latest run summary
+    latest_run_output = {
+        "generated_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "papers_processed": len(all_papers),
+        "total_expressions": len(all_alphas),
+        "valid_expressions": len([a for a in all_alphas if a.get("valid")]),
+        "alphas": all_alphas,
+    }
+    with open("latest_run.json", "w") as f:
+        json.dump(latest_run_output, f, indent=2)
 
     # Summary
     print(f"\n{'='*60}")

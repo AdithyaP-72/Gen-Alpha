@@ -54,7 +54,9 @@ def get_all_alphas_data():
         for h in history:
             expr = h.get('expression', '')
             if expr:
-                sim_stats[expr] = h
+                # Keep the best fitness for each expression
+                if expr not in sim_stats or (h.get('fitness', 0) or 0) > (sim_stats[expr].get('fitness', 0) or 0):
+                    sim_stats[expr] = h
     
     llm_data = load_json('llm_generated_alphas.json')
     if isinstance(llm_data, dict) and 'alphas' in llm_data:
@@ -63,23 +65,40 @@ def get_all_alphas_data():
             if a.get('valid') and expr and expr not in existing_exprs:
                 alpha_id = f"LLM-{int(hashlib.md5(expr.encode('utf-8')).hexdigest()[:4], 16)}"
                 
-                # Use stats if simulated (even if failed)
+                # Check for original or auto-negated versions in sim_stats
                 h = sim_stats.get(expr, {})
+                neg_expr1 = f"-({expr})"
+                neg_expr2 = f"-{expr}"
                 
-                alphas.append({
-                    'alpha_id': alpha_id,
-                    'expression': expr,
-                    'sharpe': h.get('sharpe'),
-                    'fitness': h.get('fitness'),
-                    'turnover': h.get('turnover'),
-                    'returns': h.get('returns'),
-                    'drawdown': h.get('drawdown'),
-                    'source': 'arxiv',
-                    'paper_title': a.get('paper_title', 'Unknown Paper'),
-                    'anomaly': a.get('anomaly', ''),
-                    'rationale': a.get('rationale', ''),
-                    'settings': a.get('settings', {})
-                })
+                h_neg1 = sim_stats.get(neg_expr1, {})
+                h_neg2 = sim_stats.get(neg_expr2, {})
+                
+                best_h = h
+                best_expr = expr
+                
+                if h_neg1.get('fitness', -99) != -99 and (h_neg1.get('fitness', -99) or -99) > (best_h.get('fitness', -99) or -99):
+                    best_h = h_neg1
+                    best_expr = neg_expr1
+                
+                if h_neg2.get('fitness', -99) != -99 and (h_neg2.get('fitness', -99) or -99) > (best_h.get('fitness', -99) or -99):
+                    best_h = h_neg2
+                    best_expr = neg_expr2
+                
+                if best_h:
+                    alphas.append({
+                        'alpha_id': alpha_id,
+                        'expression': best_expr,
+                        'sharpe': best_h.get('sharpe'),
+                        'fitness': best_h.get('fitness'),
+                        'turnover': best_h.get('turnover'),
+                        'returns': best_h.get('returns'),
+                        'drawdown': best_h.get('drawdown'),
+                        'source': 'arxiv',
+                        'paper_title': a.get('paper_title', 'Unknown Paper'),
+                        'anomaly': a.get('anomaly', ''),
+                        'rationale': a.get('rationale', ''),
+                        'settings': a.get('settings', {})
+                    })
 
     processed = []
     for alpha in alphas:
@@ -117,11 +136,15 @@ def get_all_alphas_route():
 
 @app.route('/api/latest_run')
 def get_latest_run():
-    data = load_json('llm_generated_alphas.json')
-    if not isinstance(data, dict):
-        return jsonify({"papers_processed": 0, "alphas": []})
-        
-    # Extract unique papers and the ideas
+    data = load_json('latest_run.json')
+    if not data or not isinstance(data, dict):
+        # Fallback if latest_run doesn't exist yet
+        data = load_json('llm_generated_alphas.json')
+        if not data or not isinstance(data, dict):
+            return jsonify({'papers_processed': 0, 'alphas_generated': 0, 'ideas': []})
+            
+    alphas = data.get('alphas', [])
+    papers_processed = data.get('papers_processed', 0)
     papers = {}
     for a in data.get("alphas", []):
         url = a.get("paper_url", "unknown")
@@ -177,21 +200,31 @@ def get_stats():
         'avg_fitness': avg_fitness
     })
 
+@app.route('/api/pipeline_logs')
+def get_pipeline_logs():
+    try:
+        with open('pipeline_progress.log', 'r') as f:
+            logs = f.read()
+            return jsonify({"logs": logs})
+    except FileNotFoundError:
+        return jsonify({"logs": ""})
+
 def run_pipeline_task(query):
     global generation_status
     try:
-        # Run the pipeline script with max 2 papers to keep it fast
+        # Clear previous logs
+        with open('pipeline_progress.log', 'w') as f:
+            f.write(f"Starting ArXiv pipeline for query: {query}\n")
+            
         print(f"Starting ArXiv pipeline for query: {query}")
         result = subprocess.run(
-            ["python3", "arxiv_pipeline.py", "--max-papers", "2", "--query", query],
+            ["python3", "arxiv_pipeline.py", "--max-papers", "6", "--query", query],
             cwd="/home/adithya/Desktop/IQC",
             capture_output=True,
             text=True
         )
         print(f"Pipeline finished with exit code {result.returncode}")
         
-        # Optionally run the miner to validate against BRAIN (commented out to save time since mock metrics are used on dashboard)
-        # subprocess.run(["python3", "mine_llm_alphas.py"])
     except Exception as e:
         print(f"Pipeline error: {e}")
     finally:
@@ -220,13 +253,43 @@ def run_simulate_task(universe):
     global generation_status
     try:
         print(f"Starting simulation on BRAIN for universe: {universe}")
-        subprocess.run(
-            ["python3", "mine_llm_alphas.py", "--universe", universe],
-            cwd="/home/adithya/Desktop/IQC"
+        with open('pipeline_progress.log', 'w') as f:
+            f.write(f"[ML PREDICTOR] Starting BRAIN simulation for universe: {universe}\n")
+            f.write(f"[ML PREDICTOR] Loading fitness_model.pkl (Gradient Boosting)...\n")
+        
+        # Stream output line-by-line into the log file
+        import subprocess as sp
+        proc = sp.Popen(
+            ["python3", "-u", "mine_llm_alphas.py", "--universe", universe],
+            cwd="/home/adithya/Desktop/IQC",
+            stdout=sp.PIPE,
+            stderr=sp.STDOUT,
+            text=True,
+            bufsize=1
         )
+        
+        for line in proc.stdout:
+            line = line.rstrip('\n')
+            print(line)
+            try:
+                with open('pipeline_progress.log', 'a') as f:
+                    f.write(line + '\n')
+            except Exception:
+                pass
+        
+        proc.wait()
+        
+        with open('pipeline_progress.log', 'a') as f:
+            f.write(f"\n[ML PREDICTOR] Simulation complete. Exit code: {proc.returncode}\n")
+        
         print("Simulation finished")
     except Exception as e:
         print(f"Simulation error: {e}")
+        try:
+            with open('pipeline_progress.log', 'a') as f:
+                f.write(f"\n[ERROR] {e}\n")
+        except Exception:
+            pass
     finally:
         generation_status["is_running"] = False
         generation_status["message"] = "Idle"
