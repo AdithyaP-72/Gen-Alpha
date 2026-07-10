@@ -15,6 +15,10 @@ generation_status = {
     "message": ""
 }
 
+# Reference to the auto-pipeline process
+_pipeline_proc = None
+_pipeline_lock = threading.Lock()
+
 def load_json(filepath):
     if os.path.exists(filepath):
         try:
@@ -209,108 +213,109 @@ def get_pipeline_logs():
     except FileNotFoundError:
         return jsonify({"logs": ""})
 
-def run_pipeline_task(query):
-    global generation_status
+@app.route('/api/pipeline_state')
+def get_pipeline_state():
+    """Return the current auto-pipeline state for the frontend popup."""
+    try:
+        if os.path.exists('pipeline_state.json'):
+            with open('pipeline_state.json', 'r') as f:
+                state = json.load(f)
+                return jsonify(state)
+    except Exception:
+        pass
+    
+    return jsonify({
+        "phase": "idle",
+        "running": generation_status["is_running"],
+        "current_domain": None,
+        "papers_processed": 0,
+        "alphas_generated": 0,
+        "alphas_accepted": 0,
+        "alphas_simulated": 0,
+        "alphas_submitted": 0,
+        "ml_results": [],
+        "simulation_results": [],
+        "papers": [],
+        "domains": [],
+        "total_domains": 0,
+    })
+
+def run_auto_pipeline_task():
+    """Run the auto-cycling pipeline as a subprocess."""
+    global generation_status, _pipeline_proc
     try:
         # Clear previous logs
         with open('pipeline_progress.log', 'w') as f:
-            f.write(f"Starting ArXiv pipeline for query: {query}\n")
-            
-        print(f"Starting ArXiv pipeline for query: {query}")
-        result = subprocess.run(
-            ["python3", "arxiv_pipeline.py", "--max-papers", "6", "--query", query],
-            cwd="/home/adithya/Desktop/IQC",
-            capture_output=True,
-            text=True
-        )
-        print(f"Pipeline finished with exit code {result.returncode}")
+            f.write("")
         
-    except Exception as e:
-        print(f"Pipeline error: {e}")
-    finally:
-        generation_status["is_running"] = False
-        generation_status["message"] = "Idle"
-
-@app.route('/api/generate', methods=['POST'])
-def generate_alphas():
-    global generation_status
-    if generation_status["is_running"]:
-        return jsonify({"status": "error", "message": "Pipeline already running"}), 400
-        
-    data = request.json or {}
-    domain = data.get('domain', 'momentum OR mean reversion')
-    
-    generation_status["is_running"] = True
-    generation_status["message"] = f"Searching ArXiv for: {domain}..."
-    
-    thread = threading.Thread(target=run_pipeline_task, args=(domain,))
-    thread.daemon = True
-    thread.start()
-    
-    return jsonify({"status": "started", "message": "Pipeline triggered successfully"})
-
-def run_simulate_task(universe):
-    global generation_status
-    try:
-        print(f"Starting simulation on BRAIN for universe: {universe}")
-        with open('pipeline_progress.log', 'w') as f:
-            f.write(f"[ML PREDICTOR] Starting BRAIN simulation for universe: {universe}\n")
-            f.write(f"[ML PREDICTOR] Loading fitness_model.pkl (Gradient Boosting)...\n")
-        
-        # Stream output line-by-line into the log file
         import subprocess as sp
-        proc = sp.Popen(
-            ["python3", "-u", "mine_llm_alphas.py", "--universe", universe],
+        _pipeline_proc = sp.Popen(
+            ["python3", "-u", "auto_pipeline.py"],
             cwd="/home/adithya/Desktop/IQC",
             stdout=sp.PIPE,
             stderr=sp.STDOUT,
             text=True,
             bufsize=1
         )
-        
-        for line in proc.stdout:
+
+        for line in _pipeline_proc.stdout:
             line = line.rstrip('\n')
+            # Don't double-print (auto_pipeline.py already logs to file)
             print(line)
-            try:
-                with open('pipeline_progress.log', 'a') as f:
-                    f.write(line + '\n')
-            except Exception:
-                pass
         
-        proc.wait()
+        _pipeline_proc.wait()
         
-        with open('pipeline_progress.log', 'a') as f:
-            f.write(f"\n[ML PREDICTOR] Simulation complete. Exit code: {proc.returncode}\n")
-        
-        print("Simulation finished")
     except Exception as e:
-        print(f"Simulation error: {e}")
-        try:
-            with open('pipeline_progress.log', 'a') as f:
-                f.write(f"\n[ERROR] {e}\n")
-        except Exception:
-            pass
+        print(f"Pipeline error: {e}")
     finally:
         generation_status["is_running"] = False
         generation_status["message"] = "Idle"
+        _pipeline_proc = None
 
-@app.route('/api/simulate', methods=['POST'])
-def simulate_alphas():
+@app.route('/api/trigger_pipeline', methods=['POST'])
+def trigger_pipeline():
+    """Single endpoint to trigger the full auto-cycling pipeline."""
     global generation_status
     if generation_status["is_running"]:
-        return jsonify({"status": "error", "message": "Task already running"}), 400
-        
-    data = request.json or {}
-    universe = data.get('universe', 'TOP3000')
+        return jsonify({"status": "error", "message": "Pipeline already running"}), 400
     
     generation_status["is_running"] = True
-    generation_status["message"] = f"Simulating on BRAIN ({universe})..."
+    generation_status["message"] = "Auto-cycling pipeline running..."
     
-    thread = threading.Thread(target=run_simulate_task, args=(universe,))
+    thread = threading.Thread(target=run_auto_pipeline_task)
     thread.daemon = True
     thread.start()
     
-    return jsonify({"status": "started", "message": "Simulation triggered successfully"})
+    return jsonify({"status": "started", "message": "Auto-cycling pipeline triggered"})
+
+@app.route('/api/stop_pipeline', methods=['POST'])
+def stop_pipeline():
+    """Stop the running pipeline gracefully."""
+    global _pipeline_proc
+    if _pipeline_proc:
+        import signal
+        _pipeline_proc.send_signal(signal.SIGINT)
+        return jsonify({"status": "stopping", "message": "Pipeline stopping gracefully..."})
+    return jsonify({"status": "error", "message": "No pipeline running"}), 400
+
+@app.route('/api/clear_queue', methods=['POST'])
+def clear_queue():
+    """Clear the pending alphas queue."""
+    try:
+        with open('llm_generated_alphas.json', 'w') as f:
+            json.dump({"alphas": [], "generated_at": "", "papers_processed": 0, "total_expressions": 0, "valid_expressions": 0}, f)
+        return jsonify({"status": "ok", "message": "Queue cleared"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+# Keep legacy endpoints for backward compatibility
+@app.route('/api/generate', methods=['POST'])
+def generate_alphas():
+    return trigger_pipeline()
+
+@app.route('/api/simulate', methods=['POST'])
+def simulate_alphas():
+    return trigger_pipeline()
 
 @app.route('/api/status')
 def get_status():

@@ -5,21 +5,10 @@ import {
   Tooltip as RechartsTip, ResponsiveContainer
 } from 'recharts';
 
-// ────────────────────────────────────────────────────────────
-// CONFIG
-// ────────────────────────────────────────────────────────────
-const DOMAINS = [
-  { id: 'momentum', label: 'Cross-Sectional Momentum', query: 'cat:q-fin.TR AND (momentum OR ranking)' },
-  { id: 'arbitrage', label: 'Statistical Arbitrage & Pairs', query: 'all:(pairs trading OR statistical arbitrage cointegration)' },
-  { id: 'event', label: 'Event-Driven & AI Sentiment', query: 'all:(news sentiment AI OR event-driven anomaly)' },
-  { id: 'volatility', label: 'Options-Implied Volatility Skew', query: 'all:(implied volatility skew OR options-implied information)' },
-  { id: 'ml', label: 'Deep Learning & Non-linear', query: 'all:(neural networks stock prediction OR reinforcement learning trading)' },
-];
-
 const API = 'http://localhost:5000';
 
 // ────────────────────────────────────────────────────────────
-// SVG ICONS  (avoid any broken lucide-react exports)
+// SVG ICONS
 // ────────────────────────────────────────────────────────────
 const GithubIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -35,11 +24,8 @@ const ChevronDown = ({ open }) => (
 const PlayIcon = () => (
   <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3" /></svg>
 );
-const BrainIcon = () => (
-  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96-.46 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2Z" />
-    <path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96-.46 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2Z" />
-  </svg>
+const StopIcon = () => (
+  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2" ry="2" /></svg>
 );
 
 // ────────────────────────────────────────────────────────────
@@ -97,15 +83,14 @@ export default function App() {
   const [alphas, setAlphas] = useState([]);
   const [allAlphas, setAllAlphas] = useState([]);
   const [stats, setStats] = useState({ total: 0, avgSharpe: 0, avgFitness: 0 });
+  const [expanded, setExpanded] = useState(null);
+
+  // Pipeline State
   const [generating, setGenerating] = useState(false);
   const [statusMsg, setStatusMsg] = useState('Idle');
-  const [domain, setDomain] = useState(DOMAINS[0]);
-  const [dropOpen, setDropOpen] = useState(false);
-  const [expanded, setExpanded] = useState(null);
-  const [showModal, setShowModal] = useState(false);
   const [showTerminal, setShowTerminal] = useState(false);
-
-  const [latestRun, setLatestRun] = useState(null);
+  const [termTab, setTermTab] = useState('papers'); // papers, ml, sim
+  const [pipelineState, setPipelineState] = useState(null);
   const [pipelineLogs, setPipelineLogs] = useState("");
 
   // Portfolio State
@@ -128,27 +113,28 @@ export default function App() {
   };
 
   const checkStatus = () => {
-    fetch(`${API}/api/status`).then(r => r.json()).then(d => {
-      setStatusMsg(d.message || (d.is_running ? 'Running…' : 'Pipeline Idle'));
-      if (!d.is_running) {
-        setGenerating(prev => { if (prev) loadData(); return false; });
-      } else {
+    fetch(`${API}/api/pipeline_state`).then(r => r.json()).then(d => {
+      setPipelineState(d);
+      if (d.running) {
         setGenerating(true);
-        if (d.message?.includes('BRAIN')) loadData();
+        setStatusMsg(`Running: ${d.current_domain || 'Initializing...'}`);
+      } else {
+        setGenerating(false);
+        setStatusMsg('Pipeline Idle');
       }
     }).catch(console.error);
   };
 
   useEffect(() => {
     loadData();
-    const id = setInterval(checkStatus, 3000);
+    const id = setInterval(checkStatus, 2000);
     return () => clearInterval(id);
   }, []);
 
   // Poll for pipeline logs
   useEffect(() => {
     let interval;
-    if (showTerminal) {
+    if (showTerminal && termTab === 'sim') {
       interval = setInterval(() => {
         fetch(`${API}/api/pipeline_logs`)
           .then(res => res.json())
@@ -159,68 +145,40 @@ export default function App() {
       }, 1500);
     }
     return () => clearInterval(interval);
-  }, [showTerminal]);
+  }, [showTerminal, termTab]);
 
   // ── actions ───────────────────────────────────────────────
-  const handleGenerate = () => {
-    setGenerating(true);
-    setStatusMsg(`Searching ArXiv…`);
-    setShowTerminal(true);
-    fetch(`${API}/api/generate`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ domain: domain.query }) })
-      .catch(() => setGenerating(false));
-  };
-
-  const handleBrain = () => {
-    setGenerating(true);
-    setStatusMsg('Simulating on BRAIN…');
-    setShowTerminal(true);
-    fetch(`${API}/api/simulate`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ universe: 'TOP3000' }) })
-      .catch(() => setGenerating(false));
-  };
-
-  const handleLastRun = () => {
-    fetch(`${API}/api/latest_run`).then(r => r.json()).then(d => { setLatestRun(d); setShowModal(true); });
+  const handleTrigger = () => {
+    if (generating) {
+      fetch(`${API}/api/stop_pipeline`, { method: 'POST' });
+    } else {
+      setGenerating(true);
+      setStatusMsg(`Starting Auto-Pipeline...`);
+      setShowTerminal(true);
+      fetch(`${API}/api/trigger_pipeline`, { method: 'POST' }).catch(() => setGenerating(false));
+    }
   };
 
   const renderLogsWithLinks = (text) => {
     if (!text) return "Initializing pipeline agent...";
     const lines = text.split('\n');
     return lines.map((line, li) => {
-      // Color-code ML Predictor lines
       let lineStyle = {};
       if (line.includes('[ML Predictor]') || line.includes('[ML PREDICTOR]')) {
-        if (line.includes('Skipping')) {
-          lineStyle = { color: '#ff6b6b' }; // Red for skipped
-        } else if (line.includes('Optimal Settings')) {
-          lineStyle = { color: '#ffd93d' }; // Yellow for settings
-        } else if (line.includes('Expected Fitness') || line.includes('Success Prob')) {
-          lineStyle = { color: '#6bfffa' }; // Cyan for predictions
-        } else {
-          lineStyle = { color: '#bb86fc' }; // Purple for general ML
-        }
+        lineStyle = { color: '#bb86fc' }; 
       } else if (line.includes('★') || line.includes('STAR') || line.includes('Submittable')) {
-        lineStyle = { color: '#39ff14', fontWeight: 'bold' }; // Bright green for success
+        lineStyle = { color: '#39ff14', fontWeight: 'bold' };
       } else if (line.includes('→ Sharpe=') || line.includes('→ Negated')) {
-        lineStyle = { color: '#e0e0e0' }; // White for results
-      } else if (line.includes('Simulation failed') || line.includes('[ERROR]') || line.includes('Exception')) {
-        lineStyle = { color: '#ff6b6b' }; // Red for errors
-      } else if (line.includes('──────') || line.includes('═════')) {
-        lineStyle = { color: '#555' }; // Dim for separators
+        lineStyle = { color: '#e0e0e0' };
+      } else if (line.includes('Simulation failed') || line.includes('[ERROR]') || line.includes('Exception') || line.includes('REJECT')) {
+        lineStyle = { color: '#ff6b6b' };
+      } else if (line.includes('──────') || line.includes('═════') || line.includes('━')) {
+        lineStyle = { color: '#555' };
+      } else if (line.includes('ACCEPT')) {
+        lineStyle = { color: '#ffd93d' };
       }
 
-      // Parse URLs within line
-      const parts = line.split(/(https?:\/\/[^\s]+)/g);
-      return (
-        <span key={li} style={lineStyle}>
-          {parts.map((part, pi) => {
-            if (part.startsWith('http')) {
-              return <a key={pi} href={part} target="_blank" rel="noreferrer" style={{ color: '#4da6ff', textDecoration: 'underline' }}>{part}</a>;
-            }
-            return part;
-          })}
-          {'\n'}
-        </span>
-      );
+      return <span key={li} style={lineStyle}>{line}{'\n'}</span>;
     });
   };
 
@@ -260,7 +218,6 @@ export default function App() {
             <span className={`status-dot ${generating ? 'running' : ''}`} />
             {statusMsg}
           </button>
-          <button className="btn" onClick={handleLastRun}>Last Run</button>
           <a href="https://github.com/AdithyaP-72/Gen-Alpha" target="_blank" rel="noreferrer" style={{ color: 'var(--muted-mid)', display: 'flex', alignItems: 'center' }}><GithubIcon /></a>
         </div>
       </nav>
@@ -273,27 +230,9 @@ export default function App() {
           at the edge of machine ability.
         </p>
         <div className="hero-actions">
-          <button className="btn btn-solid" onClick={handleGenerate} disabled={generating}>
-            <PlayIcon /> {generating ? 'Running…' : 'Trigger Pipeline'}
-          </button>
-
-          <div className="dropdown-wrap">
-            <button className="btn" onClick={() => setDropOpen(o => !o)} disabled={generating}>
-              {domain.label} <ChevronDown open={dropOpen} />
-            </button>
-            {dropOpen && !generating && (
-              <div className="dropdown-menu">
-                {DOMAINS.map(d => (
-                  <div key={d.id} className="dropdown-item" onClick={() => { setDomain(d); setDropOpen(false); }}>
-                    {d.label}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <button className="btn btn-green" onClick={handleBrain} disabled={generating}>
-            <BrainIcon /> Simulate on BRAIN
+          <button className={`btn btn-solid ${generating ? 'btn-danger' : ''}`} onClick={handleTrigger}>
+            {generating ? <StopIcon /> : <PlayIcon />}
+            {generating ? 'Stop Pipeline' : 'Trigger Auto Pipeline'}
           </button>
         </div>
       </div>
@@ -306,7 +245,7 @@ export default function App() {
           <div className="stat-cell">
             <span className="stat-cell-label">Total Alphas</span>
             <span className="stat-cell-value">{stats.total}</span>
-            <span className="stat-cell-sub">{DOMAINS.length} research domains</span>
+            <span className="stat-cell-sub">{pipelineState?.total_domains || 6} active research domains</span>
           </div>
           <div className="stat-cell">
             <span className="stat-cell-label">Avg Sharpe</span>
@@ -396,7 +335,6 @@ export default function App() {
                       {correlationData.matrix.map((row, i) => (
                         <div key={i} style={{ display: 'flex', gap: '2px' }}>
                           {row.map((val, j) => {
-                            // Heatmap color logic
                             let bg = 'rgba(255,255,255,0.05)';
                             let color = 'var(--muted)';
                             if (val === 1) {
@@ -568,61 +506,130 @@ export default function App() {
         )}
       </main>
 
-      {/* ── LIVE PIPELINE TERMINAL ─────────────────────── */}
+      {/* ── LIVE PIPELINE TERMINAL MODAL ─────────────────────── */}
       {showTerminal && (
         <div className="modal-backdrop">
-          <div className="modal-content" style={{ width: '800px', background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+          <div className="modal-content" style={{ width: '95vw', maxWidth: '1600px', height: '92vh', background: 'var(--bg-card)', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column' }}>
             <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h2 className="modal-title" style={{ margin: 0 }}>Terminal: Intelligent Alpha Mining</h2>
+              <div>
+                <h2 className="modal-title" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '12px', fontSize: '1.5rem' }}>
+                  Intelligent Alpha Pipeline 
+                  {generating && <span className="status-dot running" style={{ width: 10, height: 10 }} />}
+                </h2>
+                <div style={{ fontSize: '1rem', color: 'var(--muted)', marginTop: '6px' }}>
+                  {pipelineState?.current_domain ? `Domain: ${pipelineState.current_domain}` : 'Initializing...'} 
+                  {pipelineState?.cycle_count ? ` | Cycle ${pipelineState.cycle_count}` : ''}
+                </div>
+              </div>
               <button className="btn" onClick={() => setShowTerminal(false)}>Close</button>
             </div>
-            <pre style={{
-              background: '#0d1117',
-              color: '#39ff14',
-              padding: '1rem',
-              height: '400px',
-              overflowY: 'auto',
-              fontSize: '13px',
-              fontFamily: 'monospace',
-              borderRadius: '6px',
-              marginTop: '1rem',
-              whiteSpace: 'pre-wrap'
-            }}>
-              {renderLogsWithLinks(pipelineLogs)}
-            </pre>
-          </div>
-        </div>
-      )}
 
-      {/* ── LAST RUN MODAL ───────────────────────────────── */}
-      {showModal && latestRun && (
-        <div className="modal-backdrop" onClick={() => setShowModal(false)}>
-          <div className="modal-box" onClick={e => e.stopPropagation()}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-              <h2 className="modal-title" style={{ margin: 0 }}>Last Pipeline Run</h2>
-              <button className="btn" onClick={() => setShowModal(false)}>Close</button>
-            </div>
-            <div className="modal-stat-grid">
-              <div className="modal-stat-cell">
-                <div style={{ fontSize: '0.7rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.3rem' }}>Papers Processed</div>
-                <div style={{ fontSize: '1.6rem', fontWeight: 700 }}>{latestRun.papers_processed ?? '–'}</div>
-              </div>
-              <div className="modal-stat-cell">
-                <div style={{ fontSize: '0.7rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.3rem' }}>Expressions Generated</div>
-                <div style={{ fontSize: '1.6rem', fontWeight: 700, color: 'var(--green)' }}>{latestRun.total_expressions ?? '–'}</div>
-              </div>
+            <div className="lb-tabs" style={{ padding: '0 2rem', borderBottom: '1px solid var(--border)', gap: '1.5rem' }}>
+              <button className={`lb-tab ${termTab === 'papers' ? 'active' : ''}`} onClick={() => setTermTab('papers')}>1. Papers & Ideas</button>
+              <button className={`lb-tab ${termTab === 'ml' ? 'active' : ''}`} onClick={() => setTermTab('ml')}>2. ML Pre-Screening</button>
+              <button className={`lb-tab ${termTab === 'sim' ? 'active' : ''}`} onClick={() => setTermTab('sim')}>3. Live Simulation</button>
             </div>
 
-            <p style={{ fontSize: '0.7rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: '0.75rem' }}>Extracted Ideas</p>
-            {latestRun.papers?.length > 0
-              ? latestRun.papers.map((p, i) => (
-                <div key={i} className="paper-card">
-                  <p className="paper-title">{p.title}</p>
-                  <ul>{p.anomalies.map((a, j) => <li key={j}>{a}</li>)}</ul>
+            <div style={{ padding: '2rem', flex: 1, overflowY: 'auto' }}>
+              {/* TAB 1: PAPERS */}
+              {termTab === 'papers' && (
+                <div>
+                  <div className="modal-stat-grid" style={{ marginBottom: '2rem', gap: '2rem' }}>
+                    <div className="modal-stat-cell" style={{ padding: '1.5rem' }}>
+                      <div style={{ fontSize: '0.9rem', color: 'var(--muted)', textTransform: 'uppercase' }}>Papers Processed</div>
+                      <div style={{ fontSize: '2.5rem', fontWeight: 700 }}>{pipelineState?.papers_processed || 0}</div>
+                    </div>
+                    <div className="modal-stat-cell" style={{ padding: '1.5rem' }}>
+                      <div style={{ fontSize: '0.9rem', color: 'var(--muted)', textTransform: 'uppercase' }}>Expressions Generated</div>
+                      <div style={{ fontSize: '2.5rem', fontWeight: 700, color: 'var(--green)' }}>{pipelineState?.alphas_generated || 0}</div>
+                    </div>
+                  </div>
+
+                  {pipelineState?.papers?.length > 0 ? pipelineState.papers.map((p, i) => (
+                    <div key={i} className="paper-card" style={{ marginBottom: '1.5rem', background: 'rgba(255,255,255,0.03)', padding: '1.5rem', borderRadius: '10px' }}>
+                      <p className="paper-title" style={{ color: 'var(--text)', fontWeight: 600, marginBottom: '0.75rem', fontSize: '1.2rem' }}>{p.title}</p>
+                      <span style={{ fontSize: '0.9rem', color: 'var(--green)', padding: '4px 8px', background: 'rgba(57, 255, 20, 0.1)', borderRadius: '4px', marginRight: '12px' }}>{p.domain}</span>
+                      <span style={{ fontSize: '0.9rem', color: 'var(--muted)' }}>{p.expressions_valid} expressions</span>
+                      <ul style={{ marginTop: '0.75rem', paddingLeft: '1.5rem', color: 'var(--muted-mid)', fontSize: '1rem', lineHeight: '1.6' }}>
+                        {p.anomalies.map((a, j) => <li key={j}>{a}</li>)}
+                      </ul>
+                    </div>
+                  )) : (
+                    <p style={{ color: 'var(--muted)', textAlign: 'center', marginTop: '2rem' }}>No papers processed yet in this run.</p>
+                  )}
                 </div>
-              ))
-              : <p style={{ color: 'var(--muted)', fontSize: '0.82rem' }}>No ideas extracted in the last run.</p>
-            }
+              )}
+
+              {/* TAB 2: ML SCREENING */}
+              {termTab === 'ml' && (
+                <div>
+                  <div className="modal-stat-grid" style={{ marginBottom: '2rem' }}>
+                    <div className="modal-stat-cell" style={{ padding: '1.5rem' }}>
+                      <div style={{ fontSize: '0.9rem', color: 'var(--muted)', textTransform: 'uppercase' }}>Passed ML (≥ 2%)</div>
+                      <div style={{ fontSize: '2.5rem', fontWeight: 700, color: '#ffd93d' }}>{pipelineState?.alphas_accepted || 0}</div>
+                    </div>
+                  </div>
+
+                  {pipelineState?.ml_results?.length > 0 ? (
+                    <table className="alpha-table" style={{ fontSize: '1rem' }}>
+                      <thead>
+                        <tr>
+                          <th>Expression</th>
+                          <th>Success Prob</th>
+                          <th>Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {[...pipelineState.ml_results].reverse().map((res, i) => (
+                          <tr key={i}>
+                            <td style={{ fontFamily: 'var(--font-mono)', opacity: res.accepted ? 1 : 0.5 }}>{res.expression}</td>
+                            <td style={{ color: res.accepted ? '#ffd93d' : 'var(--muted)' }}>{res.success_prob.toFixed(1)}%</td>
+                            <td>
+                              {res.accepted 
+                                ? <span style={{ color: 'var(--green)' }}>✓ ACCEPT</span> 
+                                : <span style={{ color: 'var(--red)' }}>✗ REJECT</span>}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <p style={{ color: 'var(--muted)', textAlign: 'center', marginTop: '2rem' }}>No ML screening data yet.</p>
+                  )}
+                </div>
+              )}
+
+              {/* TAB 3: SIMULATION */}
+              {termTab === 'sim' && (
+                <div>
+                  <div className="modal-stat-grid" style={{ marginBottom: '2rem', gap: '2rem' }}>
+                    <div className="modal-stat-cell" style={{ padding: '1.5rem' }}>
+                      <div style={{ fontSize: '0.9rem', color: 'var(--muted)', textTransform: 'uppercase' }}>Simulations Complete</div>
+                      <div style={{ fontSize: '2.5rem', fontWeight: 700 }}>{pipelineState?.alphas_simulated || 0}</div>
+                    </div>
+                    <div className="modal-stat-cell" style={{ padding: '1.5rem' }}>
+                      <div style={{ fontSize: '0.9rem', color: 'var(--muted)', textTransform: 'uppercase' }}>Valid Submissions</div>
+                      <div style={{ fontSize: '2.5rem', fontWeight: 700, color: 'var(--green)' }}>{pipelineState?.alphas_submitted || 0}</div>
+                    </div>
+                  </div>
+                  
+                  {pipelineState?.current_expression && (
+                    <div style={{ background: 'rgba(57, 255, 20, 0.05)', border: '1px solid rgba(57, 255, 20, 0.2)', padding: '1.5rem', borderRadius: '8px', marginBottom: '1.5rem' }}>
+                      <div style={{ fontSize: '0.9rem', color: 'var(--green)', textTransform: 'uppercase', marginBottom: '0.75rem' }}>Currently Simulating on BRAIN API...</div>
+                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: '1.1rem' }}>{pipelineState.current_expression}</div>
+                    </div>
+                  )}
+
+                  <pre style={{
+                    background: '#0d1117', color: '#39ff14', padding: '1.5rem',
+                    flex: 1, minHeight: '350px', overflowY: 'auto', fontSize: '15px',
+                    lineHeight: '1.5', fontFamily: 'monospace', borderRadius: '8px', whiteSpace: 'pre-wrap'
+                  }}>
+                    {renderLogsWithLinks(pipelineLogs)}
+                  </pre>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

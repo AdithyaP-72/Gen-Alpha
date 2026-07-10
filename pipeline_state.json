@@ -1,0 +1,151 @@
+{
+  "phase": "simulating",
+  "current_domain": "Price Momentum & Trend",
+  "current_domain_idx": 0,
+  "cycle_count": 1,
+  "papers_processed": 2,
+  "alphas_generated": 10,
+  "alphas_accepted": 7,
+  "alphas_simulated": 1,
+  "alphas_submitted": 0,
+  "current_expression": "ts_rank(ts_corr(close, volume, 10), 21) * rank(ts_delta(clos",
+  "ml_results": [
+    {
+      "expression": "rank(ts_product(volume, 10)) * rank(ts_delta(close, 10))",
+      "pred_fitness": 0.546,
+      "success_prob": 0.84,
+      "accepted": false,
+      "settings": {
+        "decay": 20,
+        "neutralization": "SUBINDUSTRY",
+        "truncation": 0.05
+      }
+    },
+    {
+      "expression": "group_zscore((high + low) / 2 - close, subindustry) * ts_rank(volume, 21)",
+      "pred_fitness": 0.626,
+      "success_prob": 4.25,
+      "accepted": true,
+      "settings": {
+        "decay": 10,
+        "neutralization": "SUBINDUSTRY",
+        "truncation": 0.05
+      }
+    },
+    {
+      "expression": "ts_rank(ts_corr(close, volume, 10), 21) * rank(ts_delta(close, 5))",
+      "pred_fitness": 0.75,
+      "success_prob": 2.18,
+      "accepted": true,
+      "settings": {
+        "decay": 20,
+        "neutralization": "SUBINDUSTRY",
+        "truncation": 0.05
+      }
+    },
+    {
+      "expression": "trade_when(ts_arg_max(volume, 5) == 0, rank(ts_delta(close, 3)), -1)",
+      "pred_fitness": 0.702,
+      "success_prob": 6.06,
+      "accepted": true,
+      "settings": {
+        "decay": 20,
+        "neutralization": "SUBINDUSTRY",
+        "truncation": 0.05
+      }
+    },
+    {
+      "expression": "group_rank(ts_rank(ts_delta(close, 5), 21), subindustry)",
+      "pred_fitness": 0.765,
+      "success_prob": 3.55,
+      "accepted": true,
+      "settings": {
+        "decay": 0,
+        "neutralization": "SUBINDUSTRY",
+        "truncation": 0.05
+      }
+    },
+    {
+      "expression": "rank(ts_delta(close, 21)) > 0.5 ? rank(ts_delta(close, 5)) : -rank(ts_delta(clos",
+      "pred_fitness": 0.567,
+      "success_prob": 38.72,
+      "accepted": true,
+      "settings": {
+        "decay": 0,
+        "neutralization": "SUBINDUSTRY",
+        "truncation": 0.05
+      }
+    },
+    {
+      "expression": "trade_when(ts_rank(ts_std_dev(returns, 22), 252) > 0.55, group_rank(ts_rank(ts_d",
+      "pred_fitness": 0.992,
+      "success_prob": 26.64,
+      "accepted": true,
+      "settings": {
+        "decay": 0,
+        "neutralization": "SUBINDUSTRY",
+        "truncation": 0.05
+      }
+    },
+    {
+      "expression": "-ts_delta(close, 5) * ts_rank(ts_mean(volume, 21), 63)",
+      "pred_fitness": 0.621,
+      "success_prob": 1.96,
+      "accepted": false,
+      "settings": {
+        "decay": 20,
+        "neutralization": "SUBINDUSTRY",
+        "truncation": 0.05
+      }
+    },
+    {
+      "expression": "group_rank(ts_rank(ts_product(1 + returns, 5), 21), subindustry)",
+      "pred_fitness": 0.836,
+      "success_prob": 3.55,
+      "accepted": true,
+      "settings": {
+        "decay": 0,
+        "neutralization": "SUBINDUSTRY",
+        "truncation": 0.05
+      }
+    }
+  ],
+  "simulation_results": [
+    {
+      "expression": "group_zscore((high + low) / 2 - close, subindustry) * ts_rank(volume, 21)",
+      "ml_prob": 4.25,
+      "status": "FAILED"
+    }
+  ],
+  "papers": [
+    {
+      "title": "Spatio-Temporal Momentum: Jointly Learning Time-Series and Cross-Sectional Strat",
+      "domain": "Price Momentum & Trend",
+      "anomalies": [
+        "Equities with high spatio-temporal momentum features will outperform those with "
+      ],
+      "expressions_generated": 5,
+      "expressions_valid": 5
+    },
+    {
+      "title": "Discovery of a 13-Sharpe OOS Factor: Drift Regimes Unlock Hidden Cross-Sectional",
+      "domain": "Price Momentum & Trend",
+      "anomalies": [
+        "Stocks exhibit predictable returns when combining value and short-term reversal "
+      ],
+      "expressions_generated": 5,
+      "expressions_valid": 5
+    }
+  ],
+  "running": true,
+  "error": null,
+  "domains": [
+    "Price Momentum & Trend",
+    "Statistical Arbitrage & Pairs",
+    "Earnings Surprise & PEAD",
+    "News Sentiment & NLP",
+    "Options-Implied Volatility",
+    "Market Microstructure"
+  ],
+  "total_domains": 6
+}

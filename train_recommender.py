@@ -68,7 +68,7 @@ def merge_history():
 
 
 def featurize(entry):
-    expression = entry.get("expression", "")
+    expression = str(entry.get("expression", ""))
     settings = entry.get("settings", {})
     metadata = entry.get("metadata", {})
     return {
