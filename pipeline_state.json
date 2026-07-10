@@ -5,14 +5,47 @@
   "cycle_count": 1,
   "papers_processed": 2,
   "alphas_generated": 10,
-  "alphas_accepted": 7,
-  "alphas_simulated": 1,
+  "alphas_accepted": 4,
+  "alphas_simulated": 0,
   "alphas_submitted": 0,
-  "current_expression": "ts_rank(ts_corr(close, volume, 10), 21) * rank(ts_delta(clos",
+  "current_expression": "group_zscore(ts_sum((high - low) / close, 21), subindustry)",
   "ml_results": [
     {
-      "expression": "rank(ts_product(volume, 10)) * rank(ts_delta(close, 10))",
-      "pred_fitness": 0.546,
+      "expression": "group_rank(ts_rank(close, 21), subindustry)",
+      "pred_fitness": 0.684,
+      "success_prob": 1.28,
+      "accepted": false,
+      "settings": {
+        "decay": 0,
+        "neutralization": "SUBINDUSTRY",
+        "truncation": 0.05
+      }
+    },
+    {
+      "expression": "rank(ts_delta(volume, 21))",
+      "pred_fitness": 0.537,
+      "success_prob": 0.3,
+      "accepted": false,
+      "settings": {
+        "decay": 0,
+        "neutralization": "SUBINDUSTRY",
+        "truncation": 0.05
+      }
+    },
+    {
+      "expression": "group_zscore(ts_sum((high - low) / close, 21), subindustry)",
+      "pred_fitness": 1.039,
+      "success_prob": 3.55,
+      "accepted": true,
+      "settings": {
+        "decay": 0,
+        "neutralization": "SUBINDUSTRY",
+        "truncation": 0.05
+      }
+    },
+    {
+      "expression": "trade_when(ts_arg_max(volume, 21) == 0, rank(ts_delta(close, 21)), -1)",
+      "pred_fitness": 0.575,
       "success_prob": 0.84,
       "accepted": false,
       "settings": {
@@ -22,21 +55,10 @@
       }
     },
     {
-      "expression": "group_zscore((high + low) / 2 - close, subindustry) * ts_rank(volume, 21)",
-      "pred_fitness": 0.626,
-      "success_prob": 4.25,
-      "accepted": true,
-      "settings": {
-        "decay": 10,
-        "neutralization": "SUBINDUSTRY",
-        "truncation": 0.05
-      }
-    },
-    {
-      "expression": "ts_rank(ts_corr(close, volume, 10), 21) * rank(ts_delta(close, 5))",
-      "pred_fitness": 0.75,
-      "success_prob": 2.18,
-      "accepted": true,
+      "expression": "zscore(ts_mean(close, 21)) * (1 - rank(ts_std_dev(close, 21)))",
+      "pred_fitness": 0.569,
+      "success_prob": 0.84,
+      "accepted": false,
       "settings": {
         "decay": 20,
         "neutralization": "SUBINDUSTRY",
@@ -44,18 +66,7 @@
       }
     },
     {
-      "expression": "trade_when(ts_arg_max(volume, 5) == 0, rank(ts_delta(close, 3)), -1)",
-      "pred_fitness": 0.702,
-      "success_prob": 6.06,
-      "accepted": true,
-      "settings": {
-        "decay": 20,
-        "neutralization": "SUBINDUSTRY",
-        "truncation": 0.05
-      }
-    },
-    {
-      "expression": "group_rank(ts_rank(ts_delta(close, 5), 21), subindustry)",
+      "expression": "group_rank(ts_rank(ts_delta(close, 10), 63), subindustry)",
       "pred_fitness": 0.765,
       "success_prob": 3.55,
       "accepted": true,
@@ -66,63 +77,46 @@
       }
     },
     {
-      "expression": "rank(ts_delta(close, 21)) > 0.5 ? rank(ts_delta(close, 5)) : -rank(ts_delta(clos",
-      "pred_fitness": 0.567,
-      "success_prob": 38.72,
-      "accepted": true,
-      "settings": {
-        "decay": 0,
-        "neutralization": "SUBINDUSTRY",
-        "truncation": 0.05
-      }
-    },
-    {
-      "expression": "trade_when(ts_rank(ts_std_dev(returns, 22), 252) > 0.55, group_rank(ts_rank(ts_d",
-      "pred_fitness": 0.992,
-      "success_prob": 26.64,
-      "accepted": true,
-      "settings": {
-        "decay": 0,
-        "neutralization": "SUBINDUSTRY",
-        "truncation": 0.05
-      }
-    },
-    {
-      "expression": "-ts_delta(close, 5) * ts_rank(ts_mean(volume, 21), 63)",
-      "pred_fitness": 0.621,
-      "success_prob": 1.96,
+      "expression": "rank(ts_sum(ts_delta(close, 10), 63)) > 0.5 ? 1 : rank(-ts_delta(close, 2))",
+      "pred_fitness": 0.474,
+      "success_prob": 1.6,
       "accepted": false,
+      "settings": {
+        "decay": 10,
+        "neutralization": "SUBINDUSTRY",
+        "truncation": 0.05
+      }
+    },
+    {
+      "expression": "group_rank(ts_rank(ts_product(ts_delta(close, 5), ts_delay(ts_delta(close, 5), 1",
+      "pred_fitness": 1.231,
+      "success_prob": 49.94,
+      "accepted": true,
+      "settings": {
+        "decay": 0,
+        "neutralization": "SUBINDUSTRY",
+        "truncation": 0.05
+      }
+    },
+    {
+      "expression": "-ts_delta(close, 63)",
+      "pred_fitness": 0.854,
+      "success_prob": 28.73,
+      "accepted": true,
       "settings": {
         "decay": 20,
         "neutralization": "SUBINDUSTRY",
         "truncation": 0.05
       }
-    },
-    {
-      "expression": "group_rank(ts_rank(ts_product(1 + returns, 5), 21), subindustry)",
-      "pred_fitness": 0.836,
-      "success_prob": 3.55,
-      "accepted": true,
-      "settings": {
-        "decay": 0,
-        "neutralization": "SUBINDUSTRY",
-        "truncation": 0.05
-      }
     }
   ],
-  "simulation_results": [
-    {
-      "expression": "group_zscore((high + low) / 2 - close, subindustry) * ts_rank(volume, 21)",
-      "ml_prob": 4.25,
-      "status": "FAILED"
-    }
-  ],
+  "simulation_results": [],
   "papers": [
     {
       "title": "Spatio-Temporal Momentum: Jointly Learning Time-Series and Cross-Sectional Strat",
       "domain": "Price Momentum & Trend",
       "anomalies": [
-        "Equities with high spatio-temporal momentum features will outperform those with "
+        "Stocks with high cross-sectional momentum features over time will outperform tho"
       ],
       "expressions_generated": 5,
       "expressions_valid": 5
@@ -131,7 +125,7 @@
       "title": "Discovery of a 13-Sharpe OOS Factor: Drift Regimes Unlock Hidden Cross-Sectional",
       "domain": "Price Momentum & Trend",
       "anomalies": [
-        "Stocks exhibit predictable returns when combining value and short-term reversal "
+        "Stocks exhibit predictable returns when value and short-term reversal signals ar"
       ],
       "expressions_generated": 5,
       "expressions_valid": 5

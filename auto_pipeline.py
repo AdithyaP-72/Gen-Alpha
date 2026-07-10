@@ -185,17 +185,34 @@ def run_domain(client, domain, all_templates, field_index, simulated_exprs, dry_
         sort_by=arxiv.SortCriterion.Relevance,
     )
 
+    # Load previously processed papers to ensure we don't research the same paper twice
+    processed_papers = set()
+    if os.path.exists("processed_papers.json"):
+        try:
+            with open("processed_papers.json", "r") as f:
+                processed_papers = set(json.load(f))
+        except Exception:
+            pass
+
     papers = []
     try:
         for paper in arxiv_client.results(search):
+            if paper.entry_id in processed_papers:
+                continue
+                
             papers.append(paper)
+            processed_papers.add(paper.entry_id)
             if len(papers) >= PAPERS_PER_DOMAIN:
                 break
     except Exception as e:
         log(f"  ArXiv error: {e}")
         return
 
-    log(f"  Found {len(papers)} papers")
+    # Save updated processed papers
+    with open("processed_papers.json", "w") as f:
+        json.dump(list(processed_papers), f)
+
+    log(f"  Found {len(papers)} novel papers (skipped already processed)")
 
     # Step 2: Process each paper (extract anomaly → generate expressions)
     all_alphas = []

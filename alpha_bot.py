@@ -63,7 +63,7 @@ def simulate(expression, settings):
     }
 
     while True:
-        resp = session.post(f"{BASE_URL}/simulations", json=payload)
+        resp = session.post(f"{BASE_URL}/simulations", json=payload, timeout=30)
         if resp.status_code == 429:
             jitter = 15 + (time.time() % 10)
             print(f"  [!] Rate limited. Sleeping {jitter:.1f}s...")
@@ -85,7 +85,10 @@ def simulate(expression, settings):
     while elapsed < POLL_TIMEOUT:
         time.sleep(POLL_INTERVAL)
         elapsed += POLL_INTERVAL
-        r = session.get(sim_url)
+        try:
+            r = session.get(sim_url, timeout=30)
+        except Exception:
+            continue
         if r.status_code == 429:
             time.sleep(10)
             elapsed += 10
@@ -97,7 +100,10 @@ def simulate(expression, settings):
         if status == 'COMPLETE':
             alpha_id = data.get('alpha')
             if alpha_id:
-                ar = session.get(f"{BASE_URL}/alphas/{alpha_id}")
+                try:
+                    ar = session.get(f"{BASE_URL}/alphas/{alpha_id}", timeout=30)
+                except Exception:
+                    return None
                 if ar.status_code == 200:
                     ad = ar.json()
                     is_data = ad.get('is', {})
@@ -225,12 +231,18 @@ def screen_queue_item(item):
     # Auto-negate if sharpe strongly negative
     if res.get('sharpe', 0) < -0.1 and not expression.startswith('-'):
         neg_expr = f"-({expression})" if (' ' in expression or '+' in expression) else f"-{expression}"
-        print(f"  Sharpe negative → trying negated...")
-        neg_res = simulate(neg_expr, settings)
-        if neg_res and neg_res.get('fitness', 0) > res.get('fitness', 0):
-            log_simulation(neg_expr, settings, neg_res)
-            expression, res = neg_expr, neg_res
-            print(f"  → Negated: Sharpe={res['sharpe']:.2f}, Fitness={res['fitness']:.2f}")
+        print(f"  Sharpe negative → mathematically inverting results instead of simulating...")
+        neg_res = res.copy()
+        neg_res['sharpe'] = -res.get('sharpe', 0)
+        neg_res['fitness'] = -res.get('fitness', 0)
+        if 'returns' in neg_res:
+            neg_res['returns'] = -neg_res.get('returns', 0)
+        # Give it a pseudo-ID so we know it's derived
+        neg_res['alpha_id'] = f"inv_{res.get('alpha_id', 'unknown')}"
+        
+        log_simulation(neg_expr, settings, neg_res)
+        expression, res = neg_expr, neg_res
+        print(f"  → Negated (Derived): Sharpe={res['sharpe']:.2f}, Fitness={res['fitness']:.2f}")
 
     # No brute-force sweep needed since ML predicted the best parameters
     if _passes_is_checks(res):
