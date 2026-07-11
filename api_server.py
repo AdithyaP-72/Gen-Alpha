@@ -220,6 +220,7 @@ def get_pipeline_state():
         if os.path.exists('pipeline_state.json'):
             with open('pipeline_state.json', 'r') as f:
                 state = json.load(f)
+                state["running"] = generation_status["is_running"]
                 return jsonify(state)
     except Exception:
         pass
@@ -288,15 +289,38 @@ def trigger_pipeline():
     
     return jsonify({"status": "started", "message": "Auto-cycling pipeline triggered"})
 
+_stop_clicks = 0
+
 @app.route('/api/stop_pipeline', methods=['POST'])
 def stop_pipeline():
     """Stop the running pipeline gracefully."""
-    global _pipeline_proc
+    global _pipeline_proc, _stop_clicks
     if _pipeline_proc:
-        import signal
-        _pipeline_proc.send_signal(signal.SIGINT)
-        return jsonify({"status": "stopping", "message": "Pipeline stopping gracefully..."})
-    return jsonify({"status": "error", "message": "No pipeline running"}), 400
+        _stop_clicks += 1
+        if _stop_clicks >= 2:
+            _pipeline_proc.kill()
+            _pipeline_proc = None
+            _stop_clicks = 0
+            return jsonify({"status": "stopped", "message": "Pipeline forcefully killed."})
+        else:
+            import signal
+            _pipeline_proc.send_signal(signal.SIGINT)
+            return jsonify({"status": "stopping", "message": "Stopping gracefully... (Click again to force kill)"})
+    
+    # If no process exists but UI is out of sync, force reset
+    generation_status["is_running"] = False
+    try:
+        if os.path.exists('pipeline_state.json'):
+            with open('pipeline_state.json', 'r+') as f:
+                state = json.load(f)
+                state["running"] = False
+                f.seek(0)
+                json.dump(state, f)
+                f.truncate()
+    except Exception:
+        pass
+    return jsonify({"status": "error", "message": "No pipeline running. State forcefully reset."}), 400
+
 
 @app.route('/api/clear_queue', methods=['POST'])
 def clear_queue():

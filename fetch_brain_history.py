@@ -117,23 +117,39 @@ def merge_and_save(new_entries, path="simulation_history.json"):
     existing = load_existing_history(path)
 
     # Build a set of existing expression strings for dedup
-    seen = set()
-    for e in existing:
+    existing_map = {}
+    for i, e in enumerate(existing):
         expr = e.get('expression', '')
         if isinstance(expr, dict):
             expr = json.dumps(expr, sort_keys=True)
         if expr:
-            seen.add(expr)
+            existing_map[expr] = i
 
     added = 0
+    updated = 0
     for entry in new_entries:
         expr = entry.get('expression', '')
         if isinstance(expr, dict):
             expr = json.dumps(expr, sort_keys=True)
-        if expr and expr not in seen:
-            seen.add(expr)
-            existing.append(entry)
-            added += 1
+        if expr:
+            if expr in existing_map:
+                idx = existing_map[expr]
+                # Update if the new entry has valid fitness but the old one didn't
+                if existing[idx].get('fitness') is None and entry.get('fitness') is not None:
+                    # Preserve template_name and source if existing has it
+                    if 'template_name' in existing[idx]:
+                        entry['template_name'] = existing[idx]['template_name']
+                    if 'source' in existing[idx]:
+                        entry['source'] = existing[idx]['source']
+                    # Keep original timestamp
+                    if 'timestamp' in existing[idx]:
+                        entry['timestamp'] = existing[idx]['timestamp']
+                    existing[idx] = entry
+                    updated += 1
+            else:
+                existing_map[expr] = len(existing)
+                existing.append(entry)
+                added += 1
 
     # Write back as JSON Lines
     with open(path, 'w') as f:
@@ -141,7 +157,7 @@ def merge_and_save(new_entries, path="simulation_history.json"):
             json.dump(entry, f)
             f.write('\n')
 
-    print(f"  Merged: {added} new entries added. Total: {len(existing)}.")
+    print(f"  Merged: {added} new, {updated} updated entries. Total: {len(existing)}.")
     return len(existing)
 
 

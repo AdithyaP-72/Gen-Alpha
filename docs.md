@@ -47,3 +47,22 @@ cd frontend
 npm run dev
 ```
 In the browser dashboard, simply click **Trigger Pipeline** to begin the autonomous mining cycle.
+
+## Future Upgrades & Roadmap
+
+### Phase 1: Immediate Pipeline Enhancements
+- **Guidance Layer**: Pass Gradient Boosting feature importance weights into the LLM prompt to provide soft mathematical guidance during alpha generation.
+- **Optimization Worker**: Implement a background "Exploiter" worker to perform hyper-parameter grid searches on near-miss alphas (Fitness 0.8–0.99) to push them over the submittable threshold.
+- **UI Sync Indicators**: Add a visual syncing status indicator in the React dashboard for the retraining/fetching phase.
+
+### Phase 2: Next-Gen Architecture & Intelligence
+- **Evolutionary Template Bank**: Instead of static few-shot examples, promote highly successful alphas (Fitness > 1.2) into the `research_templates.json` bank to replace lower-performing ones, allowing the system to cross-breed its own historical discoveries.
+- **Semantic RAG for Datasets**: Move away from hardcoded field prefixes by embedding all 7,400+ WorldQuant data fields in a lightweight vector DB (like FAISS), allowing the LLM to semantically search for obscure predictive datasets based on paper hypotheses.
+- **Multi-Agent Peer Review**: Introduce an "Actor-Critic" framework where Agent A (Researcher) generates an expression and Agent B (Risk Manager) audits it for math errors, look-ahead bias, and logic flaws before submission.
+- **Synthetic Theory Generation**: Once ArXiv anomalies hit a ceiling, transition the LLM to hallucinate entirely novel, unpublished financial hypotheses by reading raw datasets.
+
+### Phase 3: Mitigating Bottlenecks & Failure Modes
+- **ML Pessimism (Mode Collapse)**: Since 95% of alphas fail, the Gradient Boosting model may become overly pessimistic. We will implement SMOTE or strict class-balancing during retraining to prevent the model from rejecting all ideas.
+- **Epsilon-Greedy Exploration**: Institute a 5% random simulation rate to bypass the ML predictor, ensuring the model's biases are constantly stress-tested against fresh data.
+- **SQLite Migration**: As `simulation_history.json` approaches 10-20MB, the system must be migrated to `alpha_lab.db` (SQLite) to prevent JSON RAM bottlenecking during load and append cycles.
+- **Adaptive Sleep Budgets**: To prevent WorldQuant account bans from 24/7 API hammering, the pipeline will monitor HTTP 429 rates and dynamically throttle itself (e.g., simulating "sleep" hours).

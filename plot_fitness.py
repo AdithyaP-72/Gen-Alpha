@@ -18,9 +18,10 @@ def plot_fitness_history():
                 continue
             try:
                 entry = json.loads(line)
-                fitness_scores.append(entry.get('fitness', 0))
-                # Create a simple index-based timeline if timestamps are too close
-                times.append(len(fitness_scores)) 
+                fitness = entry.get('fitness')
+                if fitness is not None:
+                    fitness_scores.append(fitness)
+                    times.append(len(fitness_scores)) 
             except Exception as e:
                 print(f"Skipping malformed line: {e}")
                 

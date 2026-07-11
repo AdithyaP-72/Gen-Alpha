@@ -181,7 +181,7 @@ def run_domain(client, domain, all_templates, field_index, simulated_exprs, dry_
     arxiv_client = arxiv.Client(delay_seconds=1.0)
     search = arxiv.Search(
         query=query,
-        max_results=PAPERS_PER_DOMAIN * 3,
+        max_results=1000,
         sort_by=arxiv.SortCriterion.Relevance,
     )
 
@@ -414,6 +414,13 @@ def run_pipeline(max_cycles=None, dry_run=False):
     log(f"  Field index: {len(field_index)}")
     log(f"  Already simulated: {len(simulated_exprs)} expressions")
 
+    last_trained_size = 0
+    try:
+        with open("simulation_history.json") as f:
+            last_trained_size = sum(1 for line in f if line.strip())
+    except Exception:
+        pass
+
     cycle = 0
     while not _stop_flag:
         cycle += 1
@@ -430,15 +437,38 @@ def run_pipeline(max_cycles=None, dry_run=False):
             pipeline_state.current_domain_idx = idx
             run_domain(client, domain, all_templates, field_index, simulated_exprs, dry_run)
 
-        if max_cycles and cycle >= max_cycles:
-            break
-
         if not _stop_flag:
+            current_size = 0
+            try:
+                with open("simulation_history.json") as f:
+                    current_size = sum(1 for line in f if line.strip())
+            except Exception:
+                pass
+
+            target_size = int(last_trained_size * 1.3)
+            if current_size >= target_size and last_trained_size > 0:
+                log(f"\n  [AUTO-RETRAINING] Dataset grew from {last_trained_size} to {current_size} (+>30%). Triggering retraining...")
+                try:
+                    import subprocess
+                    log(f"  [AUTO-RETRAINING] Syncing timed-out alphas from WorldQuant API...")
+                    subprocess.run(['python3', 'fetch_brain_history.py'], check=True)
+                    log(f"  [AUTO-RETRAINING] Retraining Gradient Boosting Classifier...")
+                    subprocess.run(['python3', 'train_recommender.py'], check=True)
+                    log(f"  [AUTO-RETRAINING] Model successfully updated!")
+                    last_trained_size = current_size
+                except Exception as e:
+                    log(f"  [AUTO-RETRAINING] Failed: {e}")
+            else:
+                log(f"\n  [AUTO-RETRAINING] Dataset size is {current_size} (need {target_size} to retrain). Skipping.")
+
             log(f"\n  Cycle {cycle} complete. Pausing 30s before next cycle...")
             for _ in range(30):
                 if _stop_flag:
                     break
                 time.sleep(1)
+
+        if max_cycles and cycle >= max_cycles:
+            break
 
     pipeline_state.phase = "idle"
     pipeline_state.running = False

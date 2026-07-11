@@ -19,7 +19,7 @@ import ml_predictor
 # ─── Constants ────────────────────────────────────────────────────
 MAX_WORKERS = 3
 POLL_INTERVAL = 4
-POLL_TIMEOUT = 240      # slightly longer for complex expressions
+POLL_TIMEOUT = 480      # slightly longer for complex expressions
 FITNESS_ABANDON = 0.45  # below this → skip entirely
 FITNESS_SWEEP   = 0.75  # start parameter sweeping here
 FITNESS_SUBMIT  = 1.1   # must reach this to be saved   (research threshold)
@@ -39,9 +39,28 @@ DEFAULT_SETTINGS = {
 }
 
 # ─── Core simulation function ────────────────────────────────────
+
+class TimeoutException(Exception): pass
+
+def _alarm_handler(signum, frame):
+    raise TimeoutException("Hard Timeout Reached (5 minutes)")
+
 def simulate(expression, settings):
-    """Submit an alpha to the WQ Brain simulation API and poll until complete."""
-    # nan_handling: templates set 'ON' for fundamental/analyst, 'OFF' for PV
+    import signal
+    try:
+        signal.signal(signal.SIGALRM, _alarm_handler)
+        signal.alarm(540)
+    except:
+        pass
+        
+    try:
+        return _simulate_inner(expression, settings)
+    finally:
+        try: signal.alarm(0)
+        except: pass
+
+def _simulate_inner(expression, settings):
+    global session
     nan_handling = settings.get('nan_handling', 'ON')
     payload = {
         'type': 'REGULAR',
@@ -52,7 +71,7 @@ def simulate(expression, settings):
             'delay': settings.get('delay', 1),
             'decay': settings.get('decay', 0),
             'neutralization': settings.get('neutralization', 'SUBINDUSTRY'),
-            'truncation': settings.get('truncation', 0.08),
+            'truncation': settings.get('truncation', 0.05),
             'pasteurization': 'ON',
             'unitHandling': 'VERIFY',
             'nanHandling': nan_handling,
@@ -62,8 +81,14 @@ def simulate(expression, settings):
         'regular': expression,
     }
 
+    import time
     while True:
-        resp = session.post(f"{BASE_URL}/simulations", json=payload, timeout=30)
+        try:
+            resp = session.post(f"{BASE_URL}/simulations", json=payload, timeout=30)
+        except Exception as e:
+            print(f"  [!] POST Timeout/Error: {e}")
+            return None
+            
         if resp.status_code == 429:
             jitter = 15 + (time.time() % 10)
             print(f"  [!] Rate limited. Sleeping {jitter:.1f}s...")
@@ -72,26 +97,35 @@ def simulate(expression, settings):
         if resp.status_code == 400:
             print(f"  [!] Bad Request for '{expression[:50]}...': {resp.text[:200]}")
             return None
+        if resp.status_code in (401, 403):
+            print(f"  [!] Session invalid (HTTP {resp.status_code}). Re-authenticating...")
+            import scrape_brain
+            scrape_brain.session = scrape_brain._build_session()
+            session = scrape_brain.session
+            continue
         if resp.status_code != 201:
             print(f"  [!] HTTP {resp.status_code} for '{expression[:50]}...': {resp.text[:200]}")
             return None
         break
 
     sim_url = resp.headers.get('Location')
-    if not sim_url:
-        return None
+    if not sim_url: return None
 
-    elapsed = 0
-    while elapsed < POLL_TIMEOUT:
+    start_time = time.time()
+    while time.time() - start_time < POLL_TIMEOUT:
         time.sleep(POLL_INTERVAL)
-        elapsed += POLL_INTERVAL
         try:
             r = session.get(sim_url, timeout=30)
         except Exception:
             continue
         if r.status_code == 429:
             time.sleep(10)
-            elapsed += 10
+            continue
+        if r.status_code in (401, 403):
+            print(f"  [!] Session invalid during polling. Re-authenticating...")
+            import scrape_brain
+            scrape_brain.session = scrape_brain._build_session()
+            session = scrape_brain.session
             continue
         if r.status_code != 200:
             continue
@@ -101,16 +135,14 @@ def simulate(expression, settings):
             alpha_id = data.get('alpha')
             if alpha_id:
                 try:
-                    ar = session.get(f"{BASE_URL}/alphas/{alpha_id}", timeout=30)
-                except Exception:
+                    ar = session.get(f"{BASE_URL}/alphas/{alpha_id}", timeout=60)
+                except:
                     return None
                 if ar.status_code == 200:
                     ad = ar.json()
                     is_data = ad.get('is', {})
                     checks = is_data.get('checks', [])
-                    # Summarise failed IS checks for diagnostics
-                    failures = [c['name'] for c in checks
-                                if c.get('result') == 'FAIL']
+                    failures = [c['name'] for c in checks if c.get('result') == 'FAIL']
                     return {
                         'alpha_id': alpha_id,
                         'sharpe': is_data.get('sharpe', 0),
@@ -130,13 +162,15 @@ def simulate(expression, settings):
     return None
 
 
-def log_simulation(expression, settings, result):
+def log_simulation(expression, settings, result, item=None):
     """Append every simulation result to simulation_history.json."""
     with open("simulation_history.json", "a") as f:
         entry = {
             "timestamp": time.time(),
             "expression": expression,
             "settings": settings,
+            "source": item.get('source', 'unknown') if item else 'unknown',
+            "template_name": item.get('template_name', '?') if item else '?',
             "sharpe": result.get('sharpe', 0) if result else None,
             "fitness": result.get('fitness', 0) if result else None,
             "turnover": result.get('turnover', 0) if result else None,
@@ -147,7 +181,7 @@ def log_simulation(expression, settings, result):
         f.write("\n")
 
 
-def save_submittable(expression, settings, result):
+def save_submittable(expression, settings, result, item=None):
     """Save a passing alpha to found_alphas.json."""
     with open("found_alphas.json", "a") as f:
         entry = {
@@ -219,10 +253,11 @@ def screen_queue_item(item):
 
     res = simulate(expression, settings)
     if not res:
-        print(f"  → Simulation failed")
+        print(f"  → Simulation failed (Timeout/Error). Logging to history for future sync...")
+        log_simulation(expression, settings, None, item)
         return None
 
-    log_simulation(expression, settings, res)
+    log_simulation(expression, settings, res, item)
     failures = res.get('failed_checks', [])
     fail_str = f" [FAIL: {', '.join(failures)}]" if failures else ''
     print(f"  → Sharpe={res['sharpe']:.2f}, Fitness={res['fitness']:.2f}, "
@@ -240,13 +275,13 @@ def screen_queue_item(item):
         # Give it a pseudo-ID so we know it's derived
         neg_res['alpha_id'] = f"inv_{res.get('alpha_id', 'unknown')}"
         
-        log_simulation(neg_expr, settings, neg_res)
+        log_simulation(neg_expr, settings, neg_res, item)
         expression, res = neg_expr, neg_res
         print(f"  → Negated (Derived): Sharpe={res['sharpe']:.2f}, Fitness={res['fitness']:.2f}")
 
     # No brute-force sweep needed since ML predicted the best parameters
     if _passes_is_checks(res):
-        save_submittable(expression, settings, res)
+        save_submittable(expression, settings, res, item)
         return (expression, settings, res)
     else:
         print(f"  → Failed IS checks — not saving.")
