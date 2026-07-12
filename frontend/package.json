@@ -10,11 +10,18 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@fontsource-variable/inter": "^5.2.8",
+    "@fontsource-variable/jetbrains-mono": "^5.2.8",
+    "@fontsource-variable/space-grotesk": "^5.2.10",
+    "@fontsource-variable/syne": "^5.2.7",
+    "@tailwindcss/vite": "^4.3.2",
+    "clsx": "^2.1.1",
     "lucide-react": "^1.23.0",
-    "ogl": "^1.0.11",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
-    "recharts": "^3.9.2"
+    "recharts": "^3.9.2",
+    "tailwind-merge": "^3.6.0",
+    "tailwindcss": "^4.3.2"
   },
   "devDependencies": {
     "@types/react": "^19.2.17",
