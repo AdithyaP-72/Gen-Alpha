@@ -4,3 +4,9 @@ scikit-learn>=1.3.0
 matplotlib>=3.7.0
 python-dotenv>=1.0.0
 arxiv>=2.1.0
+flask>=3.0.0
+flask-cors>=4.0.0
+
+# Optional: better paper-relevance scoring in the data funnel (~100 MB model).
+# The pipeline falls back to a zero-dependency keyword scorer without it.
+# sentence-transformers>=2.5.0
