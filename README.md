@@ -1,6 +1,6 @@
-# Gen-Alpha v3: Autonomous Quantitative Research System
+# Gen-Alpha: Autonomous Quantitative Research System
 
-Gen-Alpha v3 is an end-to-end intelligent alpha-mining pipeline that programmatically sources academic literature from ArXiv, synthesizes tradeable WorldQuant BRAIN expressions using a Large Language Model (Llama 3.3 via Groq), and validates/simulates their performance. The project features a premium React-based dashboard for Alpha Factory management and Portfolio Simulation.
+Gen-Alpha is an end-to-end intelligent alpha-mining pipeline that programmatically sources academic literature from ArXiv, synthesizes tradeable WorldQuant BRAIN expressions using a Large Language Model (Llama 3.3 via Groq), and validates/simulates their performance. The project features a premium React-based dashboard for Alpha Factory management and Portfolio Simulation.
 
 ## Architecture
 1. **ArXiv Miner (`arxiv_pipeline.py`)**: Fetches papers from ArXiv based on specific quantitative finance domains (Momentum, Sentiment, Value, Options).
