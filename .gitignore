@@ -1,0 +1,31 @@
+__pycache__/
+.vscode/
+.idea/
+*.tmp
+*.bak
+
+# Secrets — never commit
+.env
+credential.txt
+
+# Runtime state & caches (everything the pipeline writes at run time lives here)
+runtime/
+*.db
+*.db-wal
+*.db-shm
+*.pkl
+*.log
+
+# Legacy locations (pre-restructure) — keep ignored so old checkouts stay clean
+pipeline_state.json
+latest_run.json
+recovery_queue.json
+processed_papers.json*
+simulation_history.backup-*.json
+alpha_intelligence.json
+scrape_log.txt
+.cache/
+pics/
+pics2/
+Report_Output/
+scraped_skill.md

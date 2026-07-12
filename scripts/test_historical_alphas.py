@@ -1,7 +1,13 @@
 import time
 import json
 import concurrent.futures
-from scrape_brain import session, BASE_URL
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from genalpha.scrape_brain import get_session, BASE_URL
+session = get_session()
 
 HISTORICAL_ALPHAS = [
     {
